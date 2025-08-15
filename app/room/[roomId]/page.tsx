@@ -2,8 +2,7 @@
 
 import { useEffect, useRef, useState, use } from 'react';
 import { useRouter } from 'next/navigation';
-import { ChevronLeft, SwitchCamera, MessageCircle, Mic, MicOff, Video, VideoOff, X, Users } from 'lucide-react';
-import { ZegoExpressEngine } from 'zego-express-engine-webrtc';
+import { ChevronLeft, SwitchCamera, MessageCircleMore, Mic, MicOff, Video, VideoOff, X, Users } from 'lucide-react';
 import PopupCard from '../../components/PopupCard';
 import ShowViewers from '../../components/ShowViewers';
 import ChatInput from '../../components/ChatInput';
@@ -19,31 +18,26 @@ export default function RoomPage({ params }: RoomPageProps) {
   const { roomId } = use(params);
   const videoRef = useRef<HTMLVideoElement>(null);
   const router = useRouter();
-  const [isFrontCamera, setIsFrontCamera] = useState(true);
-  const [isStreaming, setIsStreaming] = useState(false);
-  const [isMicOn, setIsMicOn] = useState(true);
-  const [isVideoOn, setIsVideoOn] = useState(true);
-  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
-  const [zegoEngine, setZegoEngine] = useState<ZegoExpressEngine | null>(null);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [localZegoStream, setLocalZegoStream] = useState<any>(null);
-  const [streamID, setStreamID] = useState<string>('');
-  const [isInitializing, setIsInitializing] = useState(true);
-  const [showEndStreamPopup, setShowEndStreamPopup] = useState(false);
-  const [viewerCount, setViewerCount] = useState(0);
-  const [isClient, setIsClient] = useState(false);
-  const [showViewersList, setShowViewersList] = useState(false);
-  const [viewersList, setViewersList] = useState<Array<{userID: string; userName?: string}>>([]);
-  const [showChatInput, setShowChatInput] = useState(false);
-  const [messages, setMessages] = useState<Array<{id: string; text: string; userID: string; userName?: string; timestamp: number}>>([]);
+  const viewersListRef = useRef<Array<{userID: string; userName?: string}>>([]);
+  const hasInitializedRef = useRef(false);
+  const initializationPromiseRef = useRef<Promise<void> | null>(null);
+  
+  // Singleton initialization function
+  const initializeZego = useRef(async () => {
+    if (hasInitializedRef.current) {
+      console.log('🔍 [DEBUG] Already initialized, returning existing promise');
+      return initializationPromiseRef.current;
+    }
 
-  // Set client state when component mounts
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
+    if (initializationPromiseRef.current) {
+      console.log('🔍 [DEBUG] Initialization in progress, returning existing promise');
+      return initializationPromiseRef.current;
+    }
 
-  useEffect(() => {
-    const initZegoAndLogin = async () => {
+    console.log('🔍 [DEBUG] Starting new initialization...');
+    hasInitializedRef.current = true;
+
+    initializationPromiseRef.current = (async () => {
       // Check if we're in the browser
       if (typeof window === 'undefined') {
         console.log('Not in browser, skipping Zego initialization');
@@ -61,11 +55,15 @@ export default function RoomPage({ params }: RoomPageProps) {
         }
 
         console.log('Initializing Zego engine in browser...');
+        
+        // Dynamically import Zego SDK to prevent SSR errors
+        const { ZegoExpressEngine } = await import('zego-express-engine-webrtc');
         const zg = new ZegoExpressEngine(appID, server);
+        
         setZegoEngine(zg);
 
         // Set up event callbacks
-        zg.on('roomStateUpdate', (roomID, state, errorCode, extendedData) => {
+        zg.on('roomStateUpdate', (roomID: any, state: any, errorCode: any, extendedData: any) => {
           console.log('Room state update:', roomID, state, errorCode);
           if (state === 'CONNECTED') {
             setIsLoggedIn(true);
@@ -74,51 +72,60 @@ export default function RoomPage({ params }: RoomPageProps) {
           }
         });
 
-        zg.on('roomUserUpdate', (roomID, updateType, userList) => {
-          console.log('Room user update:', roomID, updateType, userList);
-          console.log('User list details:', {
+        zg.on('roomUserUpdate', (roomID: any, updateType: any, userList: any) => {
+          console.log('🔍 [DEBUG] === ROOM USER UPDATE ===');
+          console.log('🔍 [DEBUG] Room user update:', roomID, updateType, userList);
+          console.log('🔍 [DEBUG] User list details:', {
             updateType,
             userCount: userList.length,
-            users: userList.map(user => ({
+            users: userList.map((user: any) => ({
               userID: user.userID,
               userName: user.userName
             }))
           });
+          console.log('🔍 [DEBUG] Current user ID:', currentUserID);
+          console.log('🔍 [DEBUG] Current viewers list before update:', viewersListRef.current);
           
           // Update viewer count and list (including host)
           if (updateType === 'ADD') {
-            setViewerCount(prev => {
-              const newCount = prev + userList.length;
-              console.log('Adding users:', userList.length, 'Previous:', prev, 'New total:', newCount);
-              return newCount;
-            });
-            
             setViewersList(prev => {
-              // Filter out duplicates based on userID
-              const existingUserIDs = prev.map(user => user.userID);
-              const newUsers = userList.filter(user => !existingUserIDs.includes(user.userID));
-              const newViewers = [...prev, ...newUsers];
-              console.log('Adding new users:', newUsers.map(u => u.userID));
-              console.log('Updated viewers list:', newViewers.map(v => v.userID));
-              return newViewers;
+              // Create a Set for faster duplicate checking
+              const existingUserIDs = new Set(prev.map((user: any) => user.userID));
+              const newUsers = userList.filter((user: any) => !existingUserIDs.has(user.userID));
+              
+              if (newUsers.length > 0) {
+                const newViewers = [...prev, ...newUsers];
+                console.log('🔍 [DEBUG] Adding new users:', newUsers.map((u: any) => u.userID));
+                console.log('🔍 [DEBUG] Updated viewers list:', newViewers.map((v: any) => v.userID));
+                
+                // Update the ref
+                viewersListRef.current = newViewers;
+                
+                // Update viewer count based on actual unique users
+                setViewerCount(newViewers.length);
+                
+                return newViewers;
+              }
+              return prev;
             });
           } else if (updateType === 'DELETE') {
-            setViewerCount(prev => {
-              const newCount = Math.max(1, prev - userList.length); // Never go below 1 (host)
-              console.log('Removing users:', userList.length, 'Previous:', prev, 'New total:', newCount);
-              return newCount;
-            });
-            
             setViewersList(prev => {
-              const userIDsToRemove = userList.map(user => user.userID);
-              const newViewers = prev.filter(viewer => !userIDsToRemove.includes(viewer.userID));
-              console.log('Updated viewers list after removal:', newViewers);
+              const userIDsToRemove = new Set(userList.map((user: any) => user.userID));
+              const newViewers = prev.filter((viewer: any) => !userIDsToRemove.has(viewer.userID));
+              console.log('🔍 [DEBUG] Updated viewers list after removal:', newViewers);
+              
+              // Update the ref
+              viewersListRef.current = newViewers;
+              
+              // Update viewer count based on actual unique users
+              setViewerCount(Math.max(1, newViewers.length));
+              
               return newViewers;
             });
           }
         });
 
-        zg.on('roomStreamUpdate', async (roomID, updateType, streamList, extendedData) => {
+        zg.on('roomStreamUpdate', async (roomID: any, updateType: any, streamList: any, extendedData: any) => {
           console.log('Room stream update:', roomID, updateType, streamList);
           if (updateType === 'ADD') {
             // New stream added, start playing the stream
@@ -165,7 +172,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         });
 
         // Handle barrage messages
-        zg.on('IMRecvBarrageMessage', (roomID, messageList) => {
+        zg.on('IMRecvBarrageMessage', (roomID: any, messageList: any) => {
           console.log('Received barrage messages:', messageList);
           messageList.forEach((msg: any) => {
             const newMessage = {
@@ -180,27 +187,30 @@ export default function RoomPage({ params }: RoomPageProps) {
         });
 
         // Set up publishing callbacks
-        zg.on('publisherStateUpdate', (result) => {
+        zg.on('publisherStateUpdate', (result: any) => {
           console.log('Publisher state update:', result);
         });
 
-        zg.on('publishQualityUpdate', (streamID, stats) => {
+        zg.on('publishQualityUpdate', (streamID: any, stats: any) => {
           console.log('Publish quality update:', streamID, stats);
         });
 
         // Set up playing callbacks
-        zg.on('playerStateUpdate', (result) => {
+        zg.on('playerStateUpdate', (result: any) => {
           console.log('Player state update:', result);
         });
 
-        zg.on('playQualityUpdate', (streamID, stats) => {
+        zg.on('playQualityUpdate', (streamID: any, stats: any) => {
           console.log('Play quality update:', streamID, stats);
         });
 
         // Login to room
         const userID = `user_${Date.now()}`;
         const userName = 'Host';
-        console.log('Logging in with userID:', userID, 'userName:', userName);
+        setCurrentUserID(userID); // Store the user ID for later use
+        console.log('🔍 [DEBUG] === CREATING USER ID ===');
+        console.log('🔍 [DEBUG] Logging in with userID:', userID, 'userName:', userName);
+        console.log('🔍 [DEBUG] === END CREATING USER ID ===');
         
         // Generate token
         console.log('Requesting token for:', { userID, roomID: roomId });
@@ -235,17 +245,53 @@ export default function RoomPage({ params }: RoomPageProps) {
         console.log('Login result:', result);
         console.log('Initial viewer count set to 1 (including host)');
         setViewerCount(1); // Start with 1 to include the host
-        setViewersList([{ userID, userName }]); // Add host to viewers list
-        console.log('Initial viewers list:', [{ userID, userName }]);
+        const initialViewers = [{ userID, userName }];
+        setViewersList(initialViewers); // Add host to viewers list
+        viewersListRef.current = initialViewers; // Update the ref
+        console.log('🔍 [DEBUG] === INITIAL USER ADDED ===');
+        console.log('🔍 [DEBUG] Initial viewers list:', initialViewers);
+        console.log('🔍 [DEBUG] === END INITIAL USER ADDED ===');
         setIsInitializing(false);
+        setHasInitialized(true); // Mark as initialized
+        hasInitializedRef.current = true; // Mark ref as initialized
 
       } catch (error) {
         console.error('Error initializing Zego:', error);
         setIsInitializing(false);
       }
-    };
+    })();
+    return initializationPromiseRef.current;
+  });
 
-    initZegoAndLogin();
+  const [isFrontCamera, setIsFrontCamera] = useState(true);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [isMicOn, setIsMicOn] = useState(true);
+  const [isVideoOn, setIsVideoOn] = useState(true);
+  const [localStream, setLocalStream] = useState<MediaStream | null>(null);
+  const [zegoEngine, setZegoEngine] = useState<any>(null); // Changed to any to avoid SSR error
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [localZegoStream, setLocalZegoStream] = useState<any>(null);
+  const [streamID, setStreamID] = useState<string>('');
+  const [isInitializing, setIsInitializing] = useState(true);
+  const [showEndStreamPopup, setShowEndStreamPopup] = useState(false);
+  const [viewerCount, setViewerCount] = useState(0);
+  const [isClient, setIsClient] = useState(false);
+  const [showViewersList, setShowViewersList] = useState(false);
+  const [viewersList, setViewersList] = useState<Array<{userID: string; userName?: string}>>([]);
+  const [showChatInput, setShowChatInput] = useState(false);
+  const [messages, setMessages] = useState<Array<{id: string; text: string; userID: string; userName?: string; timestamp: number}>>([]);
+  const [currentUserID, setCurrentUserID] = useState<string>('');
+  const [hasInitialized, setHasInitialized] = useState(false);
+  const [hasStartedStreaming, setHasStartedStreaming] = useState(false);
+
+  // Set client state when component mounts
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
+
+  useEffect(() => {
+    // Use the singleton initialization function
+    initializeZego.current();
   }, [roomId]);
 
   // Cleanup function for streams
@@ -299,6 +345,16 @@ export default function RoomPage({ params }: RoomPageProps) {
       return;
     }
 
+    // Prevent multiple stream starts
+    if (hasStartedStreaming) {
+      console.log('Stream already started, skipping...');
+      return;
+    }
+
+    console.log('🔍 [DEBUG] === STARTING STREAM ===');
+    console.log('🔍 [DEBUG] Current user ID:', currentUserID);
+    console.log('🔍 [DEBUG] Current viewers list:', viewersListRef.current);
+
     try {
       console.log('Starting Zego stream creation...');
       
@@ -333,13 +389,14 @@ export default function RoomPage({ params }: RoomPageProps) {
 
       console.log('Streaming started successfully');
       setIsStreaming(true);
+      setHasStartedStreaming(true); // Mark as started streaming
 
     } catch (error) {
       console.error('Error starting stream:', error);
       // Clean up on error
       if (localZegoStream) {
         try {
-          await zegoEngine.destroyStream(localZegoStream);
+          zegoEngine.destroyStream(localZegoStream);
         } catch (cleanupError) {
           console.error('Error cleaning up stream:', cleanupError);
         }
@@ -352,23 +409,59 @@ export default function RoomPage({ params }: RoomPageProps) {
       return;
     }
 
+    console.log('🔍 [DEBUG] === SENDING MESSAGE ===');
+    console.log('🔍 [DEBUG] Message text:', messageText);
+    console.log('🔍 [DEBUG] Room ID:', roomId);
+    console.log('🔍 [DEBUG] Current user ID:', currentUserID);
+    console.log('🔍 [DEBUG] Is logged in:', isLoggedIn);
+
     try {
-      console.log('Sending barrage message:', messageText);
-      await zegoEngine.sendBarrageMessage(messageText, roomId);
+      console.log('🔍 [DEBUG] Sending barrage message:', messageText);
+      
+      // Try different method signatures
+      let result;
+            try {
+        // Method 1: sendBarrageMessage(roomID, message) - Correct parameter order
+        console.log('🔍 [DEBUG] Trying sendBarrageMessage with:', { roomId, messageText });
+        result = await zegoEngine.sendBarrageMessage(roomId, messageText);
+        console.log('🔍 [DEBUG] sendBarrageMessage result:', result);
+      } catch (error1) {
+        console.log('🔍 [DEBUG] Method 1 failed, trying method 2:', error1);
+        try {
+          // Method 2: sendBroadcastMessage as fallback (if it exists)
+          console.log('🔍 [DEBUG] Trying sendBroadcastMessage with:', { roomId, messageText });
+          result = await zegoEngine.sendBroadcastMessage(roomId, messageText);
+          console.log('🔍 [DEBUG] sendBroadcastMessage result:', result);
+        } catch (error2) {
+          console.log('🔍 [DEBUG] Method 2 failed:', error2);
+          throw error2; // Re-throw the error since both methods failed
+        }
+      }
+      
+      console.log('🔍 [DEBUG] Message send result:', result);
       
       // Add message to local display immediately
       const newMessage = {
         id: `msg_${Date.now()}_${Math.random()}`,
         text: messageText,
-        userID: `user_${Date.now()}`, // This should be the actual user ID
+        userID: currentUserID, // Use the stored user ID instead of creating a new one
         userName: 'You',
         timestamp: Date.now()
       };
       setMessages(prev => [...prev, newMessage]);
       
-      console.log('Barrage message sent successfully');
-    } catch (error) {
-      console.error('Error sending barrage message:', error);
+      console.log('🔍 [DEBUG] Message sent successfully');
+    } catch (error: any) {
+      console.error('🔍 [DEBUG] === MESSAGE SEND ERROR ===');
+      console.error('🔍 [DEBUG] Error sending message:', error);
+      console.error('🔍 [DEBUG] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        roomId,
+        currentUserID,
+        isLoggedIn
+      });
+      console.error('🔍 [DEBUG] === END MESSAGE SEND ERROR ===');
     }
   };
 
@@ -507,6 +600,15 @@ export default function RoomPage({ params }: RoomPageProps) {
       {/* Streaming Controls - Only show when streaming */}
       {isStreaming && (
         <>
+          {/* Top Left - Host User ID */}
+          <div className="absolute top-0 left-0 z-10 p-4 sm:p-6">
+            <div className="bg-black/30 backdrop-blur-md rounded-lg px-3 py-2 border border-white/20">
+              <div className="text-white text-xs sm:text-sm font-medium">
+                {currentUserID}
+              </div>
+            </div>
+          </div>
+
           {/* Top Right Controls Container */}
           <div className="absolute top-0 right-0 z-10 p-4 sm:p-6 flex items-center gap-3">
             {/* Viewer Count */}
@@ -535,7 +637,7 @@ export default function RoomPage({ params }: RoomPageProps) {
               onClick={() => setShowChatInput(true)}
               className="bg-black/50 hover:bg-black/70 text-white p-2 sm:p-3 rounded-full transition-colors"
             >
-              <MessageCircle className="w-6 h-6 sm:w-8 sm:h-8" />
+              <MessageCircleMore className="w-6 h-6 sm:w-8 sm:h-8" />
             </button>
           </div>
 
@@ -608,11 +710,16 @@ export default function RoomPage({ params }: RoomPageProps) {
         isOpen={showChatInput}
         onClose={() => setShowChatInput(false)}
         onSendMessage={sendMessage}
-        placeholder="Type your message..."
+        placeholder="live chat..."
       />
 
       {/* Bullet Screen Messages */}
       <BulletScreen messages={messages} />
     </div>
   );
+
+  // Initialize Zego when component mounts
+  useEffect(() => {
+    initializeZego.current();
+  }, [roomId]);
 }

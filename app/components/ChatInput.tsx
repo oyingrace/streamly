@@ -1,3 +1,4 @@
+// app/components/ChatInput.tsx
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
@@ -14,7 +15,7 @@ export default function ChatInput({
   isOpen,
   onClose,
   onSendMessage,
-  placeholder = "Type your message..."
+  placeholder = "live chat"
 }: ChatInputProps) {
   const [message, setMessage] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -47,7 +48,7 @@ export default function ChatInput({
     if (message.trim()) {
       onSendMessage(message.trim());
       setMessage('');
-      onClose();
+      // Removed onClose() - user must manually close the input
     }
   };
 
@@ -61,22 +62,21 @@ export default function ChatInput({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-t-xl shadow-2xl w-full max-w-md mx-4 mb-0">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
+      <div className="bg-gray-900 rounded-t-xl shadow-2xl w-full max-w-md mx-4 mb-0">
         {/* Header */}
-        <div className="flex items-center justify-between p-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Send Message</h3>
+        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600 transition-colors p-1"
+            className="text-gray-400 hover:text-gray-300 transition-colors p-1"
           >
-            <X className="w-5 h-5" />
+            <X className="w-3 h-3" />
           </button>
         </div>
 
         {/* Input Area */}
-        <div className="p-4">
-          <div className="flex items-center gap-3">
+        <div className="p-3">
+          <div className="flex items-center gap-2">
             <input
               ref={inputRef}
               type="text"
@@ -84,24 +84,24 @@ export default function ChatInput({
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={placeholder}
-              className="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="flex-1 px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
               maxLength={100}
             />
             <button
               onClick={handleSend}
               disabled={!message.trim()}
-              className={`p-3 rounded-lg transition-colors ${
+              className={`p-1.5 rounded transition-colors ${
                 message.trim()
                   ? 'bg-blue-600 hover:bg-blue-700 text-white'
-                  : 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                  : 'bg-gray-700 text-gray-500 cursor-not-allowed'
               }`}
             >
-              <Send className="w-5 h-5" />
+              <Send className="w-3 h-3" />
             </button>
           </div>
           
           {/* Character count */}
-          <div className="text-xs text-gray-500 mt-2 text-right">
+          <div className="text-xs text-gray-500 mt-1 text-right">
             {message.length}/100
           </div>
         </div>

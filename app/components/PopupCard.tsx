@@ -55,27 +55,27 @@ export default function PopupCard({
 
   return (
     <div 
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md animate-in fade-in duration-200"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-lg shadow-xl max-w-sm w-full mx-4 p-6 relative">
+      <div className="bg-white rounded-2xl shadow-2xl border border-gray-100 max-w-sm w-full mx-4 p-8 relative transform animate-in zoom-in-95 duration-200">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
+          className="absolute top-5 right-5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-1.5 transition-all duration-200"
         >
-          <X className="w-5 h-5" />
+          <X className="w-4 h-4" />
         </button>
 
         {/* Content */}
-        <div className="text-center">
+        <div className="text-center pt-2">
           {/* Title */}
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">
+          <h3 className="text-xl font-bold text-gray-900 mb-3 leading-tight">
             {title}
           </h3>
 
           {/* Message */}
-          <p className="text-gray-600 mb-6">
+          <p className="text-gray-600 mb-8 leading-relaxed text-base">
             {message}
           </p>
 
@@ -86,7 +86,7 @@ export default function PopupCard({
                 onCancel?.();
                 onClose();
               }}
-              className="px-4 py-2 text-gray-600 hover:text-gray-800 transition-colors font-medium"
+              className="px-6 py-2.5 text-gray-600 hover:text-gray-800 hover:bg-gray-50 rounded-xl transition-all duration-200 font-semibold border border-gray-200"
             >
               {cancelText}
             </button>
@@ -95,7 +95,7 @@ export default function PopupCard({
                 onConfirm();
                 onClose();
               }}
-              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-md transition-colors font-medium"
+              className="px-6 py-2.5 bg-gradient-to-r from-red-500 to-red-600 hover:from-red-600 hover:to-red-700 text-white rounded-xl transition-all duration-200 font-semibold shadow-lg hover:shadow-xl transform hover:scale-[1.02] active:scale-[0.98]"
             >
               {confirmText}
             </button>
