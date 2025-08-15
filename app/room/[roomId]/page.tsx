@@ -7,6 +7,7 @@ import PopupCard from '../../components/PopupCard';
 import ShowViewers from '../../components/ShowViewers';
 import ChatInput from '../../components/ChatInput';
 import BulletScreen from '../../components/BulletScreen';
+import HeartButton from '../../components/HeartButton';
 
 interface RoomPageProps {
   params: Promise<{
@@ -420,7 +421,7 @@ export default function RoomPage({ params }: RoomPageProps) {
       
       // Try different method signatures
       let result;
-            try {
+      try {
         // Method 1: sendBarrageMessage(roomID, message) - Correct parameter order
         console.log('🔍 [DEBUG] Trying sendBarrageMessage with:', { roomId, messageText });
         result = await zegoEngine.sendBarrageMessage(roomId, messageText);
@@ -462,6 +463,34 @@ export default function RoomPage({ params }: RoomPageProps) {
         isLoggedIn
       });
       console.error('🔍 [DEBUG] === END MESSAGE SEND ERROR ===');
+    }
+  };
+
+  const sendHeartMessage = async () => {
+    if (!zegoEngine) {
+      return;
+    }
+
+    try {
+      console.log('🔍 [DEBUG] Sending heart message');
+      
+      // Send heart emoji as a barrage message
+      const heartMessage = '💖';
+      const result = await zegoEngine.sendBarrageMessage(roomId, heartMessage);
+      console.log('🔍 [DEBUG] Heart message sent:', result);
+      
+      // Add heart message to local display
+      const newMessage = {
+        id: `heart_${Date.now()}_${Math.random()}`,
+        text: heartMessage,
+        userID: currentUserID,
+        userName: 'You',
+        timestamp: Date.now()
+      };
+      setMessages(prev => [...prev, newMessage]);
+      
+    } catch (error: any) {
+      console.error('🔍 [DEBUG] Error sending heart message:', error);
     }
   };
 
@@ -632,7 +661,11 @@ export default function RoomPage({ params }: RoomPageProps) {
           </div>
 
           {/* Chat Icon - Bottom Left */}
-          <div className="absolute bottom-0 left-0 z-10 p-4 sm:p-6">
+          <div className="absolute bottom-0 left-0 z-10 p-4 sm:p-6 flex flex-col gap-3">
+            {/* Heart Button */}
+            <HeartButton onSendHeart={sendHeartMessage} />
+            
+            {/* Chat Button */}
             <button 
               onClick={() => setShowChatInput(true)}
               className="bg-black/50 hover:bg-black/70 text-white p-2 sm:p-3 rounded-full transition-colors"
