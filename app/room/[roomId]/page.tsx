@@ -32,6 +32,7 @@ export default function RoomPage({ params }: RoomPageProps) {
   const [localZegoStream, setLocalZegoStream] = useState<any>(null);
   const [streamID, setStreamID] = useState<string>('');
   const [showEndStreamPopup, setShowEndStreamPopup] = useState(false);
+  const [showHostEndedStreamPopup, setShowHostEndedStreamPopup] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [showViewersList, setShowViewersList] = useState(false);
   const [showChatInput, setShowChatInput] = useState(false);
@@ -114,6 +115,50 @@ export default function RoomPage({ params }: RoomPageProps) {
     }
   };
 
+  // Handle when host ends the stream (for viewers)
+  const handleHostEndedStream = async () => {
+    console.log('🔍 DEBUG - Host ended stream, handling viewer logout...');
+    
+    try {
+      // Show message to user
+      setShowHostEndedStreamPopup(true);
+      
+      // Leave as viewer in database
+      if (!isHost && currentUserID) {
+        try {
+          await fetch(`/api/rooms/${roomId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'leave_viewer',
+              userId: currentUserID,
+              username: 'Viewer',
+            }),
+          });
+        } catch (error) {
+          console.error('Error leaving as viewer:', error);
+        }
+      }
+
+      // Logout from Zego room
+      if (zegoEngine) {
+        await zegoEngine.logoutRoom(roomId);
+        console.log('Logged out from room successfully');
+      }
+
+      // Navigate back to home page after a short delay
+      setTimeout(() => {
+        router.push('/');
+      }, 2000);
+    } catch (error) {
+      console.error('Error handling host ended stream:', error);
+      // Still navigate back even if there's an error
+      router.push('/');
+    }
+  };
+
   // Use the Zego engine hook
   const {
     zegoEngine,
@@ -133,7 +178,8 @@ export default function RoomPage({ params }: RoomPageProps) {
     currentUserID,
     onViewersListUpdate: (viewers) => {
       console.log('Viewers list updated from database:', viewers);
-    }
+    },
+    onHostEndedStream: handleHostEndedStream
   });
 
   // Initialize Zego when ready
@@ -145,20 +191,85 @@ export default function RoomPage({ params }: RoomPageProps) {
     }
   }, [roomId, isClient, roomData, isHost, initializeZego]);
 
-  // Cleanup function for streams
+  // Initialize camera preview when host enters room
   useEffect(() => {
-    return () => {
+    if (isHost && isClient && !isStreaming && !isInitializing) {
+      console.log('🔍 DEBUG - Host detected, initializing camera preview...');
+      initializeCameraPreview();
+    }
+  }, [isHost, isClient, isStreaming, isInitializing]);
+
+  // Recreate camera preview when camera is switched (for preview mode)
+  useEffect(() => {
+    if (isHost && isClient && !isStreaming && localStream) {
+      console.log('🔍 DEBUG - Camera switched, recreating preview...');
+      initializeCameraPreview();
+    }
+  }, [isFrontCamera]);
+
+  // Initialize camera preview for host before streaming starts
+  const initializeCameraPreview = async () => {
+    if (!isHost || isStreaming || !isClient) return;
+    
+    try {
+      console.log('📹 Initializing camera preview for host...');
+      console.log('🔍 DEBUG - initializeCameraPreview: isFrontCamera:', isFrontCamera);
+      
+      // Clean up existing preview stream if it exists
       if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        console.log('🧹 Existing preview stream cleaned up');
       }
-      if (localZegoStream && zegoEngine) {
-        try {
-          zegoEngine.destroyStream(localZegoStream);
-        } catch (cleanupError) {
-          console.error('Error cleaning up stream:', cleanupError);
+      
+      // Get camera access for preview
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: false, // No audio in preview to avoid echo
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: isFrontCamera ? 'user' : 'environment'
+        }
+      });
+      
+      console.log('✅ Camera preview stream obtained');
+      
+      // Set the preview stream to the video element
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.muted = true; // Mute preview to prevent echo
+        console.log('✅ Camera preview set to video element');
+      }
+      
+      // Store the preview stream for cleanup
+      setLocalStream(mediaStream);
+      
+    } catch (error: any) {
+      console.error('❌ Error initializing camera preview:', error);
+      if (error.name === 'NotAllowedError') {
+        alert('Camera permission is required to show preview. Please allow camera access.');
       }
     }
   };
+
+  // Cleanup function for streams
+  useEffect(() => {
+    return () => {
+      // Clean up preview stream
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        console.log('🧹 Preview stream cleaned up');
+      }
+      
+      // Clean up Zego stream
+      if (localZegoStream && zegoEngine) {
+        try {
+          zegoEngine.destroyStream(localZegoStream);
+          console.log('🧹 Zego stream cleaned up');
+        } catch (cleanupError) {
+          console.error('Error cleaning up Zego stream:', cleanupError);
+        }
+      }
+    };
   }, [localStream, localZegoStream, zegoEngine]);
 
   const sendMessage = async (messageText: string) => {
@@ -347,20 +458,27 @@ export default function RoomPage({ params }: RoomPageProps) {
     try {
       console.log('📹 Step 1: Creating Zego stream...');
       
+      // Clean up preview stream if it exists
+      if (localStream) {
+        localStream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        setLocalStream(null);
+        console.log('🧹 Preview stream cleaned up before starting Zego stream');
+      }
+      
       // Create local Zego stream (automatically captures from camera and microphone)
       console.log('🔍 DEBUG - About to call createZegoStream()...');
-      const localStream = await zegoEngine.createZegoStream();
+      const zegoLocalStream = await zegoEngine.createZegoStream();
       console.log('✅ Step 1: Zego stream created successfully');
-      console.log('🔍 DEBUG - localStream object:', localStream);
-      console.log('🔍 DEBUG - localStream type:', typeof localStream);
-      console.log('🔍 DEBUG - localStream methods:', Object.getOwnPropertyNames(localStream));
+      console.log('🔍 DEBUG - zegoLocalStream object:', zegoLocalStream);
+      console.log('🔍 DEBUG - zegoLocalStream type:', typeof zegoLocalStream);
+      console.log('🔍 DEBUG - zegoLocalStream methods:', Object.getOwnPropertyNames(zegoLocalStream));
       
-      setLocalZegoStream(localStream);
+      setLocalZegoStream(zegoLocalStream);
       
       // Debug: Check if Zego stream has video and audio tracks
       console.log('🔍 DEBUG - Checking stream tracks...');
-      const videoTracks = localStream.getVideoTracks();
-      const audioTracks = localStream.getAudioTracks();
+      const videoTracks = zegoLocalStream.getVideoTracks();
+      const audioTracks = zegoLocalStream.getAudioTracks();
       console.log('🔍 DEBUG - Video tracks count:', videoTracks.length);
       console.log('🔍 DEBUG - Audio tracks count:', audioTracks.length);
       
@@ -391,7 +509,7 @@ export default function RoomPage({ params }: RoomPageProps) {
       // Start publishing stream first
       console.log('📡 Step 2: Starting to publish stream...');
       console.log('🔍 DEBUG - About to call startPublishingStream...');
-      await zegoEngine.startPublishingStream(uniqueStreamID, localStream);
+      await zegoEngine.startPublishingStream(uniqueStreamID, zegoLocalStream);
       console.log('✅ Step 2: Stream publishing started successfully');
 
       // Play preview of the stream (video only, no audio to prevent echo)
@@ -407,7 +525,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         console.log('🔍 DEBUG - About to extract MediaStream from Zego stream...');
         try {
           // Extract the actual MediaStream from the Zego stream
-          const actualMediaStream = localStream.zegoStream.stream;
+          const actualMediaStream = zegoLocalStream.zegoStream.stream;
           console.log('🔍 DEBUG - Actual MediaStream:', actualMediaStream);
           console.log('🔍 DEBUG - MediaStream tracks:', actualMediaStream.getTracks());
           
@@ -549,16 +667,27 @@ export default function RoomPage({ params }: RoomPageProps) {
   };
 
   const switchCamera = async () => {
-    if (!localZegoStream) {
-      console.log('🔍 DEBUG - switchCamera: Missing localZegoStream');
-      return;
-    }
+    console.log('🔍 DEBUG - switchCamera: Starting...');
+    console.log('🔍 DEBUG - switchCamera: isStreaming:', isStreaming);
+    console.log('🔍 DEBUG - switchCamera: localStream exists:', !!localStream);
+    console.log('🔍 DEBUG - switchCamera: localZegoStream exists:', !!localZegoStream);
     
     try {
-      console.log('🔍 DEBUG - switchCamera: Starting...');
-      // Get the actual MediaStream from the Zego stream
-      const actualMediaStream = localZegoStream.zegoStream.stream;
-      const videoTrack = actualMediaStream.getVideoTracks()[0];
+      let videoTrack: MediaStreamTrack | null = null;
+      
+      if (isStreaming && localZegoStream) {
+        // During streaming - use Zego stream
+        console.log('🔍 DEBUG - switchCamera: Using Zego stream');
+        const actualMediaStream = localZegoStream.zegoStream.stream;
+        videoTrack = actualMediaStream.getVideoTracks()[0];
+      } else if (!isStreaming && localStream) {
+        // During preview - use preview stream
+        console.log('🔍 DEBUG - switchCamera: Using preview stream');
+        videoTrack = localStream.getVideoTracks()[0];
+      } else {
+        console.log('🔍 DEBUG - switchCamera: No stream available');
+        return;
+      }
       
       if (videoTrack) {
         console.log('🔍 DEBUG - switchCamera: Video track found, checking capabilities...');
@@ -576,6 +705,7 @@ export default function RoomPage({ params }: RoomPageProps) {
           console.log('✅ switchCamera: Camera switched successfully');
         } else {
           console.log('🔍 DEBUG - switchCamera: No facingMode capability found');
+          console.log('🔍 DEBUG - switchCamera: Available capabilities:', Object.keys(capabilities));
         }
       } else {
         console.log('🔍 DEBUG - switchCamera: No video track found');
@@ -680,6 +810,16 @@ export default function RoomPage({ params }: RoomPageProps) {
         onConfirm={endStreamAndLogout}
         confirmText="Yes"
         cancelText="No"
+      />
+
+      {/* Host Ended Stream Popup */}
+      <PopupCard
+        isOpen={showHostEndedStreamPopup}
+        onClose={() => setShowHostEndedStreamPopup(false)}
+        title="Stream Ended"
+        message="The host has ended the live stream."
+        onConfirm={() => router.push('/')}
+        confirmText="OK"
       />
 
       {/* Show Viewers List */}

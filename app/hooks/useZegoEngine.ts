@@ -8,9 +8,10 @@ interface UseZegoEngineProps {
   roomData: any;
   currentUserID: string;
   onViewersListUpdate?: (viewers: Array<{userID: string; userName?: string}>) => void;
+  onHostEndedStream?: () => void; // New callback for when host ends stream
 }
 
-export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewersListUpdate }: UseZegoEngineProps) {
+export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewersListUpdate, onHostEndedStream }: UseZegoEngineProps) {
   const [zegoEngine, setZegoEngine] = useState<any>(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -142,24 +143,61 @@ export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewe
                 // Step 3: Start playing the stream
                 const remoteStream = await zg.startPlayingStream(stream.streamID);
                 console.log('✅ Step 3: Remote stream started successfully');
+                console.log('🔍 DEBUG - Remote stream object:', remoteStream);
                 
-                // Step 4: Create video view
-                const remoteView = zg.createRemoteStreamView(remoteStream);
-                console.log('✅ Step 4: Remote stream view created');
-                
-                // Create a unique container for each remote stream
-                const containerId = `remote-video-${stream.streamID}`;
-                let container = document.getElementById(containerId);
-                if (!container) {
-                  container = document.createElement('div');
-                  container.id = containerId;
-                  container.className = 'absolute top-0 left-0 w-full h-full z-0';
-                  document.getElementById('remote-video')?.appendChild(container);
+                // Step 4: Extract MediaStream and set to video element (same approach as local stream)
+                try {
+                  console.log('🔍 DEBUG - About to extract MediaStream from remote stream...');
+                  console.log('🔍 DEBUG - Remote stream structure:', remoteStream);
+                  console.log('🔍 DEBUG - Remote stream properties:', Object.getOwnPropertyNames(remoteStream));
+                  
+                  // Check different possible structures for the MediaStream
+                  let actualMediaStream: MediaStream;
+                  const remoteStreamAny = remoteStream as any;
+                  
+                  if (remoteStreamAny.zegoStream && remoteStreamAny.zegoStream.stream) {
+                    actualMediaStream = remoteStreamAny.zegoStream.stream;
+                    console.log('🔍 DEBUG - Found MediaStream in remoteStream.zegoStream.stream');
+                  } else if (remoteStreamAny.stream) {
+                    actualMediaStream = remoteStreamAny.stream;
+                    console.log('🔍 DEBUG - Found MediaStream in remoteStream.stream');
+                  } else if (remoteStreamAny.getTracks && typeof remoteStreamAny.getTracks === 'function') {
+                    // If remoteStream is already a MediaStream
+                    actualMediaStream = remoteStreamAny;
+                    console.log('🔍 DEBUG - remoteStream is already a MediaStream');
+                  } else {
+                    console.error('❌ Could not find MediaStream in remote stream object');
+                    console.log('🔍 DEBUG - Available properties:', Object.getOwnPropertyNames(remoteStream));
+                    return;
+                  }
+                  
+                  console.log('🔍 DEBUG - Actual remote MediaStream:', actualMediaStream);
+                  console.log('🔍 DEBUG - Remote MediaStream tracks:', actualMediaStream.getTracks());
+                  
+                  // Find the video element and set the MediaStream
+                  const videoElement = document.querySelector('video');
+                  if (videoElement) {
+                    console.log('🔍 DEBUG - Found video element, setting remote MediaStream...');
+                    videoElement.srcObject = actualMediaStream;
+                    console.log('✅ Step 4: Remote stream MediaStream set to video element');
+                    
+                    // Check video element after setting srcObject
+                    setTimeout(() => {
+                      console.log('🔍 DEBUG - Video element after setting remote srcObject:');
+                      console.log('  - srcObject:', videoElement.srcObject);
+                      console.log('  - readyState:', videoElement.readyState);
+                      console.log('  - paused:', videoElement.paused);
+                      console.log('  - currentTime:', videoElement.currentTime);
+                      console.log('  - videoWidth:', videoElement.videoWidth);
+                      console.log('  - videoHeight:', videoElement.videoHeight);
+                    }, 1000);
+                  } else {
+                    console.error('❌ No video element found for remote stream');
+                  }
+                  
+                } catch (mediaError) {
+                  console.error('❌ Error setting remote MediaStream to video element:', mediaError);
                 }
-                
-                // Step 4: Display the video with audio enabled
-                remoteView.play(containerId, { enableAutoplayDialog: true });
-                console.log('✅ Step 4: Remote stream playing in container:', containerId);
                 
                 // Ensure audio is enabled for viewers
                 try {
@@ -187,11 +225,17 @@ export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewe
                 console.log('Stopping remote stream:', stream.streamID);
                 await zg.stopPlayingStream(stream.streamID);
                 
-                // Remove the container
-                const containerId = `remote-video-${stream.streamID}`;
-                const container = document.getElementById(containerId);
-                if (container) {
-                  container.remove();
+                // Clear the video element
+                const videoElement = document.querySelector('video');
+                if (videoElement) {
+                  videoElement.srcObject = null;
+                  console.log('✅ Remote stream cleared from video element');
+                }
+                
+                // If this is a viewer and the stream was deleted, the host likely ended the stream
+                if (!isHost && onHostEndedStream) {
+                  console.log('🔍 DEBUG - Host ended stream detected, notifying viewer...');
+                  onHostEndedStream();
                 }
               } catch (error) {
                 console.error('Error stopping remote stream:', error);
