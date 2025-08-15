@@ -24,7 +24,7 @@ export default function RoomStatus({
   // Host start button
   if (!isStreaming && isHost) {
     return (
-      <div className="absolute bottom-4 sm:bottom-6 left-0 right-0 z-10 flex justify-center pb-8 sm:pb-12">
+      <div className="absolute bottom-4 sm:bottom-10 left-0 right-0 z-10 flex justify-center pb-8 sm:pb-12">
         <button 
           onClick={onStartStream}
           disabled={isInitializing || !zegoEngine || !isLoggedIn}
