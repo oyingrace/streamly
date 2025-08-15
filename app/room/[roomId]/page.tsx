@@ -32,6 +32,7 @@ export default function RoomPage({ params }: RoomPageProps) {
   const [localZegoStream, setLocalZegoStream] = useState<any>(null);
   const [streamID, setStreamID] = useState<string>('');
   const [showEndStreamPopup, setShowEndStreamPopup] = useState(false);
+  const [showHostEndedStreamPopup, setShowHostEndedStreamPopup] = useState(false);
   const [isClient, setIsClient] = useState(false);
   const [showViewersList, setShowViewersList] = useState(false);
   const [showChatInput, setShowChatInput] = useState(false);
@@ -114,6 +115,50 @@ export default function RoomPage({ params }: RoomPageProps) {
     }
   };
 
+  // Handle when host ends the stream (for viewers)
+  const handleHostEndedStream = async () => {
+    console.log('🔍 DEBUG - Host ended stream, handling viewer logout...');
+    
+    try {
+      // Show message to user
+      setShowHostEndedStreamPopup(true);
+      
+      // Leave as viewer in database
+      if (!isHost && currentUserID) {
+        try {
+          await fetch(`/api/rooms/${roomId}`, {
+            method: 'PATCH',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+              action: 'leave_viewer',
+              userId: currentUserID,
+              username: 'Viewer',
+            }),
+          });
+        } catch (error) {
+          console.error('Error leaving as viewer:', error);
+        }
+      }
+
+      // Logout from Zego room
+      if (zegoEngine) {
+        await zegoEngine.logoutRoom(roomId);
+        console.log('Logged out from room successfully');
+      }
+
+      // Navigate back to home page after a short delay
+      setTimeout(() => {
+        router.push('/');
+      }, 2000);
+    } catch (error) {
+      console.error('Error handling host ended stream:', error);
+      // Still navigate back even if there's an error
+      router.push('/');
+    }
+  };
+
   // Use the Zego engine hook
   const {
     zegoEngine,
@@ -133,7 +178,8 @@ export default function RoomPage({ params }: RoomPageProps) {
     currentUserID,
     onViewersListUpdate: (viewers) => {
       console.log('Viewers list updated from database:', viewers);
-    }
+    },
+    onHostEndedStream: handleHostEndedStream
   });
 
   // Initialize Zego when ready
@@ -145,20 +191,95 @@ export default function RoomPage({ params }: RoomPageProps) {
     }
   }, [roomId, isClient, roomData, isHost, initializeZego]);
 
-  // Cleanup function for streams
+  // Initialize camera preview when host enters room
   useEffect(() => {
-    return () => {
+    if (isHost && isClient && !isStreaming && !isInitializing) {
+      console.log('🔍 DEBUG - Host detected, initializing camera preview...');
+      initializeCameraPreview();
+    }
+  }, [isHost, isClient, isStreaming, isInitializing]);
+
+  // Recreate camera preview when camera is switched (for preview mode)
+  useEffect(() => {
+    if (isHost && isClient && !isStreaming && localStream) {
+      console.log('🔍 DEBUG - Camera switched, recreating preview...');
+      initializeCameraPreview();
+    }
+  }, [isFrontCamera]);
+
+  // Ensure proper audio settings for viewers
+  useEffect(() => {
+    if (!isHost && isWatching && videoRef.current) {
+      console.log('🔍 DEBUG - Setting up audio for viewer...');
+      videoRef.current.muted = false;
+      videoRef.current.volume = 1.0;
+      console.log('✅ Viewer audio settings applied: muted = false, volume = 1.0');
+    }
+  }, [isHost, isWatching]);
+
+  // Initialize camera preview for host before streaming starts
+  const initializeCameraPreview = async () => {
+    if (!isHost || isStreaming || !isClient) return;
+    
+    try {
+      console.log('📹 Initializing camera preview for host...');
+      console.log('🔍 DEBUG - initializeCameraPreview: isFrontCamera:', isFrontCamera);
+      
+      // Clean up existing preview stream if it exists
       if (localStream) {
-        localStream.getTracks().forEach(track => track.stop());
+        localStream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        console.log('🧹 Existing preview stream cleaned up');
       }
-      if (localZegoStream && zegoEngine) {
-        try {
-          zegoEngine.destroyStream(localZegoStream);
-        } catch (cleanupError) {
-          console.error('Error cleaning up stream:', cleanupError);
+      
+      // Get camera access for preview
+      const mediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: false, // No audio in preview to avoid echo
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: isFrontCamera ? 'user' : 'environment'
+        }
+      });
+      
+      console.log('✅ Camera preview stream obtained');
+      
+      // Set the preview stream to the video element
+      if (videoRef.current) {
+        videoRef.current.srcObject = mediaStream;
+        videoRef.current.muted = true; // Mute preview to prevent echo
+        console.log('✅ Camera preview set to video element');
+      }
+      
+      // Store the preview stream for cleanup
+      setLocalStream(mediaStream);
+      
+    } catch (error: any) {
+      console.error('❌ Error initializing camera preview:', error);
+      if (error.name === 'NotAllowedError') {
+        alert('Camera permission is required to show preview. Please allow camera access.');
       }
     }
   };
+
+  // Cleanup function for streams
+  useEffect(() => {
+    return () => {
+      // Clean up preview stream
+      if (localStream) {
+        localStream.getTracks().forEach(track => track.stop());
+        console.log('🧹 Preview stream cleaned up');
+      }
+      
+      // Clean up Zego stream
+      if (localZegoStream && zegoEngine) {
+        try {
+          zegoEngine.destroyStream(localZegoStream);
+          console.log('🧹 Zego stream cleaned up');
+        } catch (cleanupError) {
+          console.error('Error cleaning up Zego stream:', cleanupError);
+        }
+      }
+    };
   }, [localStream, localZegoStream, zegoEngine]);
 
   const sendMessage = async (messageText: string) => {
@@ -327,41 +448,182 @@ export default function RoomPage({ params }: RoomPageProps) {
 
   const startStreaming = async () => {
     if (!zegoEngine || !isLoggedIn) {
-      console.error('Zego engine not initialized or not logged in');
+      console.error('❌ Zego engine not initialized or not logged in');
+      console.log('🔍 DEBUG - zegoEngine:', !!zegoEngine);
+      console.log('🔍 DEBUG - isLoggedIn:', isLoggedIn);
       return;
     }
 
     // Prevent multiple stream starts
     if (hasStartedStreaming) {
-      console.log('Stream already started, skipping...');
+      console.log('⚠️ Stream already started, skipping...');
       return;
     }
 
-    console.log('🔍 [DEBUG] === STARTING STREAM ===');
-    console.log('🔍 [DEBUG] Current user ID:', currentUserID);
+    console.log('🚀 === STARTING STREAM ===');
+    console.log('🔍 DEBUG - Current user ID:', currentUserID);
+    console.log('🔍 DEBUG - Room ID:', roomId);
+    console.log('🔍 DEBUG - Is Host:', isHost);
 
     try {
-      console.log('Starting Zego stream creation...');
+      console.log('📹 Step 1: Creating Zego stream...');
       
-      // Create local Zego stream
-      const localStream = await zegoEngine.createZegoStream();
-      setLocalZegoStream(localStream);
-      console.log('Zego stream created:', localStream);
-
+      // Clean up preview stream if it exists
+      if (localStream) {
+        localStream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
+        setLocalStream(null);
+        console.log('🧹 Preview stream cleaned up before starting Zego stream');
+      }
+      
+      // Create local Zego stream with explicit audio and video constraints
+      console.log('🔍 DEBUG - About to call createZegoStream()...');
+      
+      // First, get user media to ensure we have audio access
+      const userMediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: isFrontCamera ? 'user' : 'environment'
+        }
+      });
+      
+      console.log('🔍 DEBUG - User media stream obtained:', userMediaStream);
+      console.log('🔍 DEBUG - User media audio tracks:', userMediaStream.getAudioTracks());
+      console.log('🔍 DEBUG - User media video tracks:', userMediaStream.getVideoTracks());
+      
+      // Create Zego stream from the user media
+      let zegoLocalStream;
+      try {
+        zegoLocalStream = await zegoEngine.createZegoStream({
+          camera: {
+            audio: true,
+            video: true,
+            audioInput: userMediaStream.getAudioTracks()[0],
+            videoInput: userMediaStream.getVideoTracks()[0]
+          }
+        });
+      } catch (createError) {
+        console.log('🔍 DEBUG - createZegoStream with parameters failed, trying default method...');
+        // Fallback to default method
+        zegoLocalStream = await zegoEngine.createZegoStream();
+      }
+      
+      console.log('✅ Step 1: Zego stream created successfully');
+      console.log('🔍 DEBUG - zegoLocalStream object:', zegoLocalStream);
+      console.log('🔍 DEBUG - zegoLocalStream type:', typeof zegoLocalStream);
+      console.log('🔍 DEBUG - zegoLocalStream methods:', Object.getOwnPropertyNames(zegoLocalStream));
+      
+      setLocalZegoStream(zegoLocalStream);
+      
+      // Debug: Check if Zego stream has video and audio tracks
+      console.log('🔍 DEBUG - Checking stream tracks...');
+      const videoTracks = zegoLocalStream.getVideoTracks();
+      const audioTracks = zegoLocalStream.getAudioTracks();
+      console.log('🔍 DEBUG - Video tracks count:', videoTracks.length);
+      console.log('🔍 DEBUG - Audio tracks count:', audioTracks.length);
+      
+      if (videoTracks.length > 0) {
+        console.log('🔍 DEBUG - First video track:', videoTracks[0]);
+        console.log('🔍 DEBUG - Video track enabled:', videoTracks[0].enabled);
+        console.log('🔍 DEBUG - Video track readyState:', videoTracks[0].readyState);
+        console.log('🔍 DEBUG - Video track label:', videoTracks[0].label);
+      }
+      
+      if (audioTracks.length > 0) {
+        console.log('🔍 DEBUG - First audio track:', audioTracks[0]);
+        console.log('🔍 DEBUG - Audio track enabled:', audioTracks[0].enabled);
+        console.log('🔍 DEBUG - Audio track readyState:', audioTracks[0].readyState);
+        console.log('🔍 DEBUG - Audio track muted:', audioTracks[0].muted);
+        
+        // Ensure audio track is enabled for streaming
+        if (!audioTracks[0].enabled) {
+          audioTracks[0].enabled = true;
+          console.log('🔍 DEBUG - Audio track enabled for streaming');
+        }
+        
+        // Ensure audio track is not muted
+        if (audioTracks[0].muted) {
+          console.log('🔍 DEBUG - Audio track was muted, this might cause issues');
+        }
+      } else {
+        console.error('❌ No audio tracks found in Zego stream!');
+        alert('No microphone found or microphone access denied. Please check your microphone permissions.');
+        return;
+      }
+      
+      if (videoTracks.length === 0) {
+        console.error('❌ No video tracks found in Zego stream!');
+        alert('No camera found or camera access denied. Please check your camera permissions.');
+        return;
+      }
+      
       // Generate unique stream ID
       const uniqueStreamID = `stream_${roomId}_${Date.now()}`;
       setStreamID(uniqueStreamID);
-      console.log('Stream ID generated:', uniqueStreamID);
+      console.log('🔍 DEBUG - Stream ID generated:', uniqueStreamID);
 
       // Start publishing stream first
-      console.log('Starting to publish stream...');
-      await zegoEngine.startPublishingStream(uniqueStreamID, localStream);
-      console.log('Stream publishing started');
+      console.log('📡 Step 2: Starting to publish stream...');
+      console.log('🔍 DEBUG - About to call startPublishingStream...');
+      await zegoEngine.startPublishingStream(uniqueStreamID, zegoLocalStream);
+      console.log('✅ Step 2: Stream publishing started successfully');
+
+      // Ensure published stream audio is not muted
+      try {
+        // Try with stream ID first
+        await zegoEngine.mutePublishStreamAudio(uniqueStreamID, false);
+        console.log('✅ Published stream audio unmuted for viewers (using stream ID)');
+      } catch (audioError) {
+        console.error('❌ Error unmuting published stream audio with stream ID:', audioError);
+        try {
+          // Fallback: try with stream object
+          await zegoEngine.mutePublishStreamAudio(zegoLocalStream, false);
+          console.log('✅ Published stream audio unmuted for viewers (using stream object)');
+        } catch (fallbackError) {
+          console.error('❌ Error unmuting published stream audio with stream object:', fallbackError);
+        }
+      }
 
       // Play preview of the stream (video only, no audio to prevent echo)
+      console.log('🎥 Step 3: Setting up video preview...');
+      console.log('🔍 DEBUG - videoRef.current exists:', !!videoRef.current);
+      
       if (videoRef.current) {
-        console.log('Playing Zego stream preview...');
-        localStream.playVideo(videoRef.current);
+        console.log('🔍 DEBUG - Video element:', videoRef.current);
+        console.log('🔍 DEBUG - Video element srcObject:', videoRef.current.srcObject);
+        console.log('🔍 DEBUG - Video element readyState:', videoRef.current.readyState);
+        console.log('🔍 DEBUG - Video element paused:', videoRef.current.paused);
+        
+        console.log('🔍 DEBUG - About to extract MediaStream from Zego stream...');
+        try {
+          // Extract the actual MediaStream from the Zego stream
+          const actualMediaStream = zegoLocalStream.zegoStream.stream;
+          console.log('🔍 DEBUG - Actual MediaStream:', actualMediaStream);
+          console.log('🔍 DEBUG - MediaStream tracks:', actualMediaStream.getTracks());
+          
+          // Set the MediaStream directly to the video element
+          videoRef.current.srcObject = actualMediaStream;
+          console.log('✅ Step 3: Video preview setup successful - MediaStream set to video element');
+          
+          // Check video element after setting srcObject
+          setTimeout(() => {
+            console.log('🔍 DEBUG - Video element after setting srcObject:');
+            console.log('  - srcObject:', videoRef.current?.srcObject);
+            console.log('  - readyState:', videoRef.current?.readyState);
+            console.log('  - paused:', videoRef.current?.paused);
+            console.log('  - currentTime:', videoRef.current?.currentTime);
+            console.log('  - videoWidth:', videoRef.current?.videoWidth);
+            console.log('  - videoHeight:', videoRef.current?.videoHeight);
+          }, 1000);
+          
+        } catch (playError) {
+          console.error('❌ Error setting MediaStream to video element:', playError);
+        }
         
         // Mute the local preview audio to prevent host from hearing themselves
         // BUT keep the published stream audio enabled so viewers can hear
@@ -369,14 +631,16 @@ export default function RoomPage({ params }: RoomPageProps) {
           // Only mute the local preview, not the published stream
           if (videoRef.current) {
             videoRef.current.muted = true;
+            console.log('🔍 DEBUG - Local preview audio muted');
           }
-          console.log('Local preview audio muted to prevent echo');
         } catch (error) {
-          console.error('Error muting local preview audio:', error);
+          console.error('❌ Error muting local preview audio:', error);
         }
+      } else {
+        console.error('❌ Video element not found!');
       }
 
-      console.log('Streaming started successfully');
+      console.log('🎉 === STREAMING STARTED SUCCESSFULLY ===');
       setIsStreaming(true);
       setHasStartedStreaming(true); // Mark as started streaming
 
@@ -405,70 +669,186 @@ export default function RoomPage({ params }: RoomPageProps) {
         }
       }
 
-    } catch (error) {
-      console.error('Error starting stream:', error);
+    } catch (error: any) {
+      console.error('❌ === ERROR STARTING STREAM ===');
+      console.error('❌ Error details:', error);
+      console.error('❌ Error name:', error.name);
+      console.error('❌ Error message:', error.message);
+      console.error('❌ Error stack:', error.stack);
+      
       // Clean up on error
       if (localZegoStream) {
         try {
+          console.log('🧹 Cleaning up localZegoStream on error...');
           zegoEngine.destroyStream(localZegoStream);
+          console.log('✅ Cleanup successful');
         } catch (cleanupError) {
-          console.error('Error cleaning up stream:', cleanupError);
+          console.error('❌ Error during cleanup:', cleanupError);
         }
       }
     }
   };
 
   const toggleMic = async () => {
-    if (!localStream || !zegoEngine || !localZegoStream) return;
+    if (!zegoEngine || !localZegoStream) {
+      console.log('🔍 DEBUG - toggleMic: Missing zegoEngine or localZegoStream');
+      return;
+    }
     
     try {
-    const audioTrack = localStream.getAudioTracks()[0];
-    if (audioTrack) {
-      audioTrack.enabled = !audioTrack.enabled;
-      setIsMicOn(audioTrack.enabled);
+      console.log('🔍 DEBUG - toggleMic: Starting...');
+      
+      // Get the actual MediaStream from the Zego stream
+      let actualMediaStream: MediaStream;
+      if (localZegoStream.zegoStream && localZegoStream.zegoStream.stream) {
+        actualMediaStream = localZegoStream.zegoStream.stream;
+      } else if (localZegoStream.stream) {
+        actualMediaStream = localZegoStream.stream;
+      } else {
+        console.error('❌ toggleMic: Could not access MediaStream from Zego stream');
+        return;
+      }
+      
+      const audioTrack = actualMediaStream.getAudioTracks()[0];
+      
+      if (audioTrack) {
+        console.log('🔍 DEBUG - toggleMic: Audio track found, toggling...');
+        console.log('🔍 DEBUG - toggleMic: Current audio track enabled:', audioTrack.enabled);
+        console.log('🔍 DEBUG - toggleMic: Current audio track muted:', audioTrack.muted);
         
-        // Also mute/unmute the published stream audio
-        await zegoEngine.mutePublishStreamAudio(localZegoStream, !audioTrack.enabled);
-        console.log('Published stream audio muted:', !audioTrack.enabled);
+        // Toggle the audio track enabled state
+        audioTrack.enabled = !audioTrack.enabled;
+        setIsMicOn(audioTrack.enabled);
+        console.log('🔍 DEBUG - toggleMic: Audio track enabled after toggle:', audioTrack.enabled);
+        
+        // For Zego, we need to mute/unmute the published stream
+        // The parameter should be the stream ID, not the stream object
+        if (streamID) {
+          try {
+            await zegoEngine.mutePublishStreamAudio(streamID, !audioTrack.enabled);
+            console.log('✅ toggleMic: Published stream audio muted:', !audioTrack.enabled);
+          } catch (muteError) {
+            console.error('❌ toggleMic: Error muting/unmuting published stream:', muteError);
+            // Fallback: try with the stream object
+            try {
+              await zegoEngine.mutePublishStreamAudio(localZegoStream, !audioTrack.enabled);
+              console.log('✅ toggleMic: Published stream audio muted (fallback):', !audioTrack.enabled);
+            } catch (fallbackError) {
+              console.error('❌ toggleMic: Fallback mute/unmute also failed:', fallbackError);
+            }
+          }
+        } else {
+          console.log('🔍 DEBUG - toggleMic: No streamID available, skipping mute/unmute');
+        }
+      } else {
+        console.log('🔍 DEBUG - toggleMic: No audio track found');
       }
     } catch (error) {
-      console.error('Error toggling microphone:', error);
+      console.error('❌ toggleMic: Error toggling microphone:', error);
     }
   };
 
   const toggleVideo = async () => {
-    if (!localStream) return;
+    if (!localZegoStream) {
+      console.log('🔍 DEBUG - toggleVideo: Missing localZegoStream');
+      return;
+    }
     
-    const videoTrack = localStream.getVideoTracks()[0];
-    if (videoTrack) {
-      videoTrack.enabled = !videoTrack.enabled;
-      setIsVideoOn(videoTrack.enabled);
+    try {
+      console.log('🔍 DEBUG - toggleVideo: Starting...');
+      // Get the actual MediaStream from the Zego stream
+      const actualMediaStream = localZegoStream.zegoStream.stream;
+      const videoTrack = actualMediaStream.getVideoTracks()[0];
+      
+      if (videoTrack) {
+        console.log('🔍 DEBUG - toggleVideo: Video track found, toggling...');
+        videoTrack.enabled = !videoTrack.enabled;
+        setIsVideoOn(videoTrack.enabled);
+        console.log('🔍 DEBUG - toggleVideo: Video track enabled:', videoTrack.enabled);
+      } else {
+        console.log('🔍 DEBUG - toggleVideo: No video track found');
+      }
+    } catch (error) {
+      console.error('❌ toggleVideo: Error toggling video:', error);
     }
   };
 
   const switchCamera = async () => {
-    if (!localStream) return;
+    console.log('🔍 DEBUG - switchCamera: Starting...');
+    console.log('🔍 DEBUG - switchCamera: isStreaming:', isStreaming);
+    console.log('🔍 DEBUG - switchCamera: localStream exists:', !!localStream);
+    console.log('🔍 DEBUG - switchCamera: localZegoStream exists:', !!localZegoStream);
     
     try {
-      const videoTrack = localStream.getVideoTracks()[0];
+      let videoTrack: MediaStreamTrack | null = null;
+      
+      if (isStreaming && localZegoStream) {
+        // During streaming - use Zego stream
+        console.log('🔍 DEBUG - switchCamera: Using Zego stream');
+        console.log('🔍 DEBUG - switchCamera: localZegoStream object:', localZegoStream);
+        
+        // Try different ways to access the MediaStream from Zego stream
+        let actualMediaStream: MediaStream | null = null;
+        
+        if (localZegoStream.zegoStream && localZegoStream.zegoStream.stream) {
+          actualMediaStream = localZegoStream.zegoStream.stream;
+          console.log('🔍 DEBUG - switchCamera: Found stream via zegoStream.stream');
+        } else if (localZegoStream.stream) {
+          actualMediaStream = localZegoStream.stream;
+          console.log('🔍 DEBUG - switchCamera: Found stream via localZegoStream.stream');
+        } else if (localZegoStream instanceof MediaStream) {
+          actualMediaStream = localZegoStream;
+          console.log('🔍 DEBUG - switchCamera: localZegoStream is already a MediaStream');
+        }
+        
+        if (actualMediaStream) {
+          const videoTracks = actualMediaStream.getVideoTracks();
+          console.log('🔍 DEBUG - switchCamera: Video tracks found:', videoTracks.length);
+          videoTrack = videoTracks[0];
+        } else {
+          console.log('🔍 DEBUG - switchCamera: Could not access MediaStream from Zego stream');
+          return;
+        }
+      } else if (!isStreaming && localStream) {
+        // During preview - use preview stream
+        console.log('🔍 DEBUG - switchCamera: Using preview stream');
+        videoTrack = localStream.getVideoTracks()[0];
+      } else {
+        console.log('🔍 DEBUG - switchCamera: No stream available');
+        return;
+      }
+      
       if (videoTrack) {
+        console.log('🔍 DEBUG - switchCamera: Video track found, checking capabilities...');
         const capabilities = videoTrack.getCapabilities();
+        console.log('🔍 DEBUG - switchCamera: Capabilities:', capabilities);
+        
         if (capabilities.facingMode) {
           const newFacingMode = isFrontCamera ? 'environment' : 'user';
+          console.log('🔍 DEBUG - switchCamera: Switching to facingMode:', newFacingMode);
+          
           await videoTrack.applyConstraints({
             facingMode: newFacingMode
           });
           setIsFrontCamera(!isFrontCamera);
+          console.log('✅ switchCamera: Camera switched successfully');
+        } else {
+          console.log('🔍 DEBUG - switchCamera: No facingMode capability found');
+          console.log('🔍 DEBUG - switchCamera: Available capabilities:', Object.keys(capabilities));
         }
+      } else {
+        console.log('🔍 DEBUG - switchCamera: No video track found');
       }
     } catch (error) {
-      console.error('Error switching camera:', error);
+      console.error('❌ switchCamera: Error switching camera:', error);
     }
   };
 
   const goBack = () => {
     router.push('/');
   };
+
+
 
   // Show loading state during SSR or when not yet client-side
   if (!isClient) {
@@ -486,7 +866,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         ref={videoRef}
         autoPlay
         playsInline
-        muted
+        muted={isHost} // Only mute for host to prevent echo, viewers need to hear
         className="w-full h-full object-cover"
       />
       
@@ -502,6 +882,8 @@ export default function RoomPage({ params }: RoomPageProps) {
           </div>
         </div>
       )}
+
+
       
       {/* Top Controls - Only show when not streaming */}
       {!isStreaming && (
@@ -561,6 +943,16 @@ export default function RoomPage({ params }: RoomPageProps) {
         onConfirm={endStreamAndLogout}
         confirmText="Yes"
         cancelText="No"
+      />
+
+      {/* Host Ended Stream Popup */}
+      <PopupCard
+        isOpen={showHostEndedStreamPopup}
+        onClose={() => setShowHostEndedStreamPopup(false)}
+        title="Stream Ended"
+        message="The host has ended the live stream."
+        onConfirm={() => router.push('/')}
+        confirmText="OK"
       />
 
       {/* Show Viewers List */}

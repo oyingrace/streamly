@@ -20,7 +20,7 @@ export default function RoomHeader({
   return (
     <>
       {/* Top Left - Host Username */}
-      <div className="absolute top-0 left-0 z-10 p-4 sm:p-6">
+      <div className="fixed top-6 left-4 z-10">
         <div className="bg-black/30 backdrop-blur-md rounded-lg px-3 py-2 border border-white/20">
           <div className="text-white text-xs sm:text-sm font-medium">
             {hostUsername}
@@ -29,7 +29,7 @@ export default function RoomHeader({
       </div>
 
       {/* Top Right Controls Container */}
-      <div className="absolute top-0 right-0 z-10 p-4 sm:p-6 flex items-center gap-3">
+      <div className="fixed top-6 right-4 z-10 flex items-center gap-3">
         {/* Viewer Count - Only for hosts */}
         {isHost && (
           <button 

@@ -9,6 +9,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@farcaster/miniapp-sdk": "^0.1.8",
     "@supabase/supabase-js": "^2.55.0",
     "lucide-react": "^0.539.0",
     "next": "15.4.6",
