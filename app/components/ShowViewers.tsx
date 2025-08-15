@@ -1,7 +1,7 @@
 'use client';
 
-import { useEffect } from 'react';
-import { X, Users } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { X, Users, Loader2 } from 'lucide-react';
 
 interface Viewer {
   userID: string;
@@ -11,16 +11,94 @@ interface Viewer {
 interface ShowViewersProps {
   isOpen: boolean;
   onClose: () => void;
-  viewers: Viewer[];
+  roomId: string;
   title?: string;
+  hostUsername?: string;
 }
 
 export default function ShowViewers({
   isOpen,
   onClose,
-  viewers,
-  title = 'Viewers'
+  roomId,
+  title = 'Viewers',
+  hostUsername
 }: ShowViewersProps) {
+  const [viewers, setViewers] = useState<Viewer[]>([]);
+  const [cachedViewers, setCachedViewers] = useState<Viewer[]>([]);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  // Function to fetch participants from database
+  const fetchParticipants = async (isBackground = false) => {
+    if (!roomId) return;
+    
+    if (!isBackground) {
+      setLoading(true);
+    } else {
+      setIsRefreshing(true);
+    }
+
+    try {
+      const response = await fetch(`/api/rooms/${roomId}?action=get_participants`);
+      if (response.ok) {
+        const data = await response.json();
+        const participants = data.participants || [];
+        
+        // Transform database participants to match our interface
+        const viewersList = participants.map((participant: any) => ({
+          userID: participant.user_id,
+          userName: participant.username
+        }));
+        
+        setViewers(viewersList);
+        setCachedViewers(viewersList);
+        setLastFetchTime(Date.now());
+      } else {
+        console.error('Failed to fetch participants');
+        if (!isBackground) {
+          setViewers([]);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching participants:', error);
+      if (!isBackground) {
+        setViewers([]);
+      }
+    } finally {
+      if (!isBackground) {
+        setLoading(false);
+      } else {
+        setIsRefreshing(false);
+      }
+    }
+  };
+
+  // Show cached data immediately when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      // Show cached data immediately if available
+      if (cachedViewers.length > 0) {
+        setViewers(cachedViewers);
+      }
+      
+      // Fetch fresh data in background
+      fetchParticipants(true);
+    }
+  }, [isOpen, roomId]);
+
+  // Background refresh when modal is closed
+  useEffect(() => {
+    if (!isOpen && cachedViewers.length > 0) {
+      // Fetch fresh data in background when modal closes
+      const timer = setTimeout(() => {
+        fetchParticipants(true);
+      }, 1000); // Wait 1 second after closing
+
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen]);
+
   // Close when Escape key is pressed
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -74,31 +152,47 @@ export default function ShowViewers({
 
         {/* Content */}
         <div className="p-3 max-h-[60vh] overflow-y-auto">
-          {viewers.length === 0 ? (
+          {loading ? (
+            <div className="text-center text-gray-500 py-6">
+              <Loader2 className="w-8 h-8 mx-auto mb-2 text-gray-600 animate-spin" />
+              <p className="text-sm">Loading participants...</p>
+            </div>
+          ) : viewers.length === 0 ? (
             <div className="text-center text-gray-500 py-6">
               <Users className="w-8 h-8 mx-auto mb-2 text-gray-600" />
               <p className="text-sm">No viewers yet</p>
             </div>
           ) : (
             <div className="space-y-2">
-              {viewers.map((viewer, index) => (
-                <div 
-                  key={`${viewer.userID}-${index}`} 
-                  className="flex items-center gap-3 p-2 bg-gray-800 rounded-lg border border-gray-700 hover:bg-gray-750 transition-colors"
-                >
-                  <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                    {viewer.userName ? viewer.userName.charAt(0).toUpperCase() : 'A'}
+              {viewers.map((viewer, index) => {
+                // Determine if this is the host
+                const isHost = hostUsername && viewer.userName === hostUsername;
+                
+                // Get display name
+                let displayName = viewer.userName || 'Anonymous';
+                if (isHost) {
+                  displayName = `(Host) ${displayName}`;
+                }
+                
+                // Get first character for profile picture
+                const firstChar = displayName.charAt(0).toUpperCase();
+                
+                return (
+                  <div 
+                    key={`${viewer.userID}-${index}`} 
+                    className="flex items-center gap-3 p-2 bg-gray-800 rounded-lg border border-gray-700 hover:bg-gray-750 transition-colors"
+                  >
+                    <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                      {firstChar}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-medium text-white truncate">
+                        {displayName}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-white truncate">
-                      {viewer.userName || 'Anonymous'}
-                    </p>
-                    <p className="text-xs text-gray-400 font-mono truncate">
-                      {viewer.userID}
-                    </p>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           )}
         </div>

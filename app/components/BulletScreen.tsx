@@ -12,11 +12,39 @@ interface Message {
 
 interface BulletScreenProps {
   messages: Message[];
+  roomId: string;
   className?: string;
 }
 
-export default function BulletScreen({ messages, className = '' }: BulletScreenProps) {
+export default function BulletScreen({ messages, roomId, className = '' }: BulletScreenProps) {
   const [displayedMessages, setDisplayedMessages] = useState<Message[]>([]);
+  const [usernameMap, setUsernameMap] = useState<Record<string, string>>({});
+
+  // Function to fetch usernames from database
+  const fetchUsernames = async () => {
+    try {
+      const response = await fetch(`/api/rooms/${roomId}?action=get_participants`);
+      if (response.ok) {
+        const data = await response.json();
+        const participants = data.participants || [];
+        
+        // Create a map of user_id to username
+        const userMap: Record<string, string> = {};
+        participants.forEach((participant: any) => {
+          userMap[participant.user_id] = participant.username;
+        });
+        
+        setUsernameMap(userMap);
+      }
+    } catch (error) {
+      console.error('Error fetching usernames:', error);
+    }
+  };
+
+  // Fetch usernames when component mounts
+  useEffect(() => {
+    fetchUsernames();
+  }, [roomId]);
 
   useEffect(() => {
     if (messages.length > 0) {
@@ -37,6 +65,7 @@ export default function BulletScreen({ messages, className = '' }: BulletScreenP
           key={message.id}
           message={message}
           index={index}
+          usernameMap={usernameMap}
         />
       ))}
     </div>
@@ -48,13 +77,16 @@ interface InstagramStyleMessageProps {
   index: number;
 }
 
-function InstagramStyleMessage({ message, index }: InstagramStyleMessageProps) {
+function InstagramStyleMessage({ message, index, usernameMap }: InstagramStyleMessageProps & { usernameMap: Record<string, string> }) {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
     // Start animation immediately
     setIsVisible(true);
   }, []);
+
+  // Get username from database map, fallback to Zego data, then to 'Anonymous'
+  const displayName = usernameMap[message.userID] || message.userName || 'Anonymous';
 
   // Calculate position - messages appear closer to the middle and move up less
   const topPosition = 45 + (index * 12); // Start from 45% from top, each message only 12px apart
@@ -72,17 +104,12 @@ function InstagramStyleMessage({ message, index }: InstagramStyleMessageProps) {
       }}
     >
       <div className="bg-transparent text-white px-2 py-1 rounded-2xl shadow-lg border border-white/10 max-w-sm">
-        <div className="flex items-center gap-2">
-          <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-xs font-bold text-white">
-            {message.userName ? message.userName.charAt(0).toUpperCase() : 'A'}
+        <div className="flex-1 min-w-0">
+          <div className="text-xs font-semibold text-white/90 truncate">
+            {displayName}
           </div>
-          <div className="flex-1 min-w-0">
-            <div className="text-xs font-semibold text-white/90 truncate">
-              {message.userName || 'Anonymous'}
-            </div>
-            <div className="text-sm font-medium mt-0.5 break-words leading-tight">
-              {message.text}
-            </div>
+          <div className="text-sm font-medium mt-0.5 break-words leading-tight">
+            {message.text}
           </div>
         </div>
       </div>
