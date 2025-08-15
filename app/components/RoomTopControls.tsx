@@ -14,7 +14,7 @@ export default function RoomTopControls({
   isHost,
 }: RoomTopControlsProps) {
   return (
-    <div className="relative w-full flex justify-between items-center p-4 sm:p-6 mt-4 sm:mt-6">
+    <div className="fixed top-6 left-4 right-4 z-10 flex justify-between items-center">
       {/* Back Button */}
       <button
         onClick={onGoBack}
