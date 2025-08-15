@@ -678,8 +678,30 @@ export default function RoomPage({ params }: RoomPageProps) {
       if (isStreaming && localZegoStream) {
         // During streaming - use Zego stream
         console.log('🔍 DEBUG - switchCamera: Using Zego stream');
-        const actualMediaStream = localZegoStream.zegoStream.stream;
-        videoTrack = actualMediaStream.getVideoTracks()[0];
+        console.log('🔍 DEBUG - switchCamera: localZegoStream object:', localZegoStream);
+        
+        // Try different ways to access the MediaStream from Zego stream
+        let actualMediaStream: MediaStream | null = null;
+        
+        if (localZegoStream.zegoStream && localZegoStream.zegoStream.stream) {
+          actualMediaStream = localZegoStream.zegoStream.stream;
+          console.log('🔍 DEBUG - switchCamera: Found stream via zegoStream.stream');
+        } else if (localZegoStream.stream) {
+          actualMediaStream = localZegoStream.stream;
+          console.log('🔍 DEBUG - switchCamera: Found stream via localZegoStream.stream');
+        } else if (localZegoStream instanceof MediaStream) {
+          actualMediaStream = localZegoStream;
+          console.log('🔍 DEBUG - switchCamera: localZegoStream is already a MediaStream');
+        }
+        
+        if (actualMediaStream) {
+          const videoTracks = actualMediaStream.getVideoTracks();
+          console.log('🔍 DEBUG - switchCamera: Video tracks found:', videoTracks.length);
+          videoTrack = videoTracks[0];
+        } else {
+          console.log('🔍 DEBUG - switchCamera: Could not access MediaStream from Zego stream');
+          return;
+        }
       } else if (!isStreaming && localStream) {
         // During preview - use preview stream
         console.log('🔍 DEBUG - switchCamera: Using preview stream');

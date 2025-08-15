@@ -63,7 +63,7 @@ export default function ChatInput({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-      <div className="bg-gray-900 rounded-t-xl shadow-2xl w-full max-w-sm mx-2 sm:mx-4 mb-0">
+      <div className="bg-gray-900 rounded-t-xl shadow-2xl w-[300px] sm:w-[400px] mx-2 sm:mx-4 mb-0">
         {/* Header */}
         <div className="flex items-center justify-between px-2 sm:px-3 py-2 border-b border-gray-700">
           <button
