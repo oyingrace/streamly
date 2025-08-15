@@ -493,6 +493,12 @@ export default function RoomPage({ params }: RoomPageProps) {
         console.log('🔍 DEBUG - First audio track:', audioTracks[0]);
         console.log('🔍 DEBUG - Audio track enabled:', audioTracks[0].enabled);
         console.log('🔍 DEBUG - Audio track readyState:', audioTracks[0].readyState);
+        
+        // Ensure audio track is enabled for streaming
+        if (!audioTracks[0].enabled) {
+          audioTracks[0].enabled = true;
+          console.log('🔍 DEBUG - Audio track enabled for streaming');
+        }
       }
       
       if (videoTracks.length === 0) {
@@ -511,6 +517,14 @@ export default function RoomPage({ params }: RoomPageProps) {
       console.log('🔍 DEBUG - About to call startPublishingStream...');
       await zegoEngine.startPublishingStream(uniqueStreamID, zegoLocalStream);
       console.log('✅ Step 2: Stream publishing started successfully');
+
+      // Ensure published stream audio is not muted
+      try {
+        await zegoEngine.mutePublishStreamAudio(zegoLocalStream, false);
+        console.log('✅ Published stream audio unmuted for viewers');
+      } catch (audioError) {
+        console.error('❌ Error unmuting published stream audio:', audioError);
+      }
 
       // Play preview of the stream (video only, no audio to prevent echo)
       console.log('🎥 Step 3: Setting up video preview...');
@@ -630,7 +644,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         setIsMicOn(audioTrack.enabled);
         console.log('🔍 DEBUG - toggleMic: Audio track enabled:', audioTrack.enabled);
         
-        // Also mute/unmute the published stream audio
+        // Mute/unmute the published stream audio (mute when audio track is disabled)
         await zegoEngine.mutePublishStreamAudio(localZegoStream, !audioTrack.enabled);
         console.log('✅ toggleMic: Published stream audio muted:', !audioTrack.enabled);
       } else {
