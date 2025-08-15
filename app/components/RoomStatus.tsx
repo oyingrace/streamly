@@ -24,7 +24,7 @@ export default function RoomStatus({
   // Host start button
   if (!isStreaming && isHost) {
     return (
-      <div className="absolute bottom-24 sm:bottom-48 left-0 right-0 z-10 flex justify-center pb-8 sm:pb-12">
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10">
         <button 
           onClick={onStartStream}
           disabled={isInitializing || !zegoEngine || !isLoggedIn}
@@ -55,7 +55,7 @@ export default function RoomStatus({
   // Viewer status
   if (!isStreaming && !isHost && !isWatching) {
     return (
-      <div className="absolute bottom-24 sm:bottom-32 left-0 right-0 z-10 flex justify-center pb-8 sm:pb-12">
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10">
         <div className="bg-black/30 backdrop-blur-md rounded-lg px-6 py-3 border border-white/20">
           <div className="text-white text-center">
             {isInitializing ? (

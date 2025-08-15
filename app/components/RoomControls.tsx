@@ -23,7 +23,7 @@ export default function RoomControls({
 }: RoomControlsProps) {
   if (isHost) {
     return (
-      <div className="absolute bottom-4 sm:bottom-24 right-0 z-10 flex items-center gap-2 p-4 sm:p-6">
+      <div className="fixed bottom-6 right-4 z-10 flex items-center gap-2">
         {/* Switch Camera */}
         <button
           onClick={onSwitchCamera}
@@ -69,7 +69,7 @@ export default function RoomControls({
 
   // Viewer controls - only exit button
   return (
-    <div className="absolute top-0 right-0 z-10 flex items-center gap-2 p-4 sm:p-6">
+    <div className="fixed top-4 right-4 z-10 flex items-center gap-2">
       {/* Exit Button for Viewers */}
       <button
         onClick={onExit}
