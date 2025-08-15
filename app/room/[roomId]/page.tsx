@@ -207,6 +207,16 @@ export default function RoomPage({ params }: RoomPageProps) {
     }
   }, [isFrontCamera]);
 
+  // Ensure proper audio settings for viewers
+  useEffect(() => {
+    if (!isHost && isWatching && videoRef.current) {
+      console.log('🔍 DEBUG - Setting up audio for viewer...');
+      videoRef.current.muted = false;
+      videoRef.current.volume = 1.0;
+      console.log('✅ Viewer audio settings applied: muted = false, volume = 1.0');
+    }
+  }, [isHost, isWatching]);
+
   // Initialize camera preview for host before streaming starts
   const initializeCameraPreview = async () => {
     if (!isHost || isStreaming || !isClient) return;
@@ -465,9 +475,44 @@ export default function RoomPage({ params }: RoomPageProps) {
         console.log('🧹 Preview stream cleaned up before starting Zego stream');
       }
       
-      // Create local Zego stream (automatically captures from camera and microphone)
+      // Create local Zego stream with explicit audio and video constraints
       console.log('🔍 DEBUG - About to call createZegoStream()...');
-      const zegoLocalStream = await zegoEngine.createZegoStream();
+      
+      // First, get user media to ensure we have audio access
+      const userMediaStream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true
+        },
+        video: {
+          width: { ideal: 1280 },
+          height: { ideal: 720 },
+          facingMode: isFrontCamera ? 'user' : 'environment'
+        }
+      });
+      
+      console.log('🔍 DEBUG - User media stream obtained:', userMediaStream);
+      console.log('🔍 DEBUG - User media audio tracks:', userMediaStream.getAudioTracks());
+      console.log('🔍 DEBUG - User media video tracks:', userMediaStream.getVideoTracks());
+      
+      // Create Zego stream from the user media
+      let zegoLocalStream;
+      try {
+        zegoLocalStream = await zegoEngine.createZegoStream({
+          camera: {
+            audio: true,
+            video: true,
+            audioInput: userMediaStream.getAudioTracks()[0],
+            videoInput: userMediaStream.getVideoTracks()[0]
+          }
+        });
+      } catch (createError) {
+        console.log('🔍 DEBUG - createZegoStream with parameters failed, trying default method...');
+        // Fallback to default method
+        zegoLocalStream = await zegoEngine.createZegoStream();
+      }
+      
       console.log('✅ Step 1: Zego stream created successfully');
       console.log('🔍 DEBUG - zegoLocalStream object:', zegoLocalStream);
       console.log('🔍 DEBUG - zegoLocalStream type:', typeof zegoLocalStream);
@@ -493,12 +538,22 @@ export default function RoomPage({ params }: RoomPageProps) {
         console.log('🔍 DEBUG - First audio track:', audioTracks[0]);
         console.log('🔍 DEBUG - Audio track enabled:', audioTracks[0].enabled);
         console.log('🔍 DEBUG - Audio track readyState:', audioTracks[0].readyState);
+        console.log('🔍 DEBUG - Audio track muted:', audioTracks[0].muted);
         
         // Ensure audio track is enabled for streaming
         if (!audioTracks[0].enabled) {
           audioTracks[0].enabled = true;
           console.log('🔍 DEBUG - Audio track enabled for streaming');
         }
+        
+        // Ensure audio track is not muted
+        if (audioTracks[0].muted) {
+          console.log('🔍 DEBUG - Audio track was muted, this might cause issues');
+        }
+      } else {
+        console.error('❌ No audio tracks found in Zego stream!');
+        alert('No microphone found or microphone access denied. Please check your microphone permissions.');
+        return;
       }
       
       if (videoTracks.length === 0) {
@@ -520,10 +575,18 @@ export default function RoomPage({ params }: RoomPageProps) {
 
       // Ensure published stream audio is not muted
       try {
-        await zegoEngine.mutePublishStreamAudio(zegoLocalStream, false);
-        console.log('✅ Published stream audio unmuted for viewers');
+        // Try with stream ID first
+        await zegoEngine.mutePublishStreamAudio(uniqueStreamID, false);
+        console.log('✅ Published stream audio unmuted for viewers (using stream ID)');
       } catch (audioError) {
-        console.error('❌ Error unmuting published stream audio:', audioError);
+        console.error('❌ Error unmuting published stream audio with stream ID:', audioError);
+        try {
+          // Fallback: try with stream object
+          await zegoEngine.mutePublishStreamAudio(zegoLocalStream, false);
+          console.log('✅ Published stream audio unmuted for viewers (using stream object)');
+        } catch (fallbackError) {
+          console.error('❌ Error unmuting published stream audio with stream object:', fallbackError);
+        }
       }
 
       // Play preview of the stream (video only, no audio to prevent echo)
@@ -634,19 +697,49 @@ export default function RoomPage({ params }: RoomPageProps) {
     
     try {
       console.log('🔍 DEBUG - toggleMic: Starting...');
+      
       // Get the actual MediaStream from the Zego stream
-      const actualMediaStream = localZegoStream.zegoStream.stream;
+      let actualMediaStream: MediaStream;
+      if (localZegoStream.zegoStream && localZegoStream.zegoStream.stream) {
+        actualMediaStream = localZegoStream.zegoStream.stream;
+      } else if (localZegoStream.stream) {
+        actualMediaStream = localZegoStream.stream;
+      } else {
+        console.error('❌ toggleMic: Could not access MediaStream from Zego stream');
+        return;
+      }
+      
       const audioTrack = actualMediaStream.getAudioTracks()[0];
       
       if (audioTrack) {
         console.log('🔍 DEBUG - toggleMic: Audio track found, toggling...');
+        console.log('🔍 DEBUG - toggleMic: Current audio track enabled:', audioTrack.enabled);
+        console.log('🔍 DEBUG - toggleMic: Current audio track muted:', audioTrack.muted);
+        
+        // Toggle the audio track enabled state
         audioTrack.enabled = !audioTrack.enabled;
         setIsMicOn(audioTrack.enabled);
-        console.log('🔍 DEBUG - toggleMic: Audio track enabled:', audioTrack.enabled);
+        console.log('🔍 DEBUG - toggleMic: Audio track enabled after toggle:', audioTrack.enabled);
         
-        // Mute/unmute the published stream audio (mute when audio track is disabled)
-        await zegoEngine.mutePublishStreamAudio(localZegoStream, !audioTrack.enabled);
-        console.log('✅ toggleMic: Published stream audio muted:', !audioTrack.enabled);
+        // For Zego, we need to mute/unmute the published stream
+        // The parameter should be the stream ID, not the stream object
+        if (streamID) {
+          try {
+            await zegoEngine.mutePublishStreamAudio(streamID, !audioTrack.enabled);
+            console.log('✅ toggleMic: Published stream audio muted:', !audioTrack.enabled);
+          } catch (muteError) {
+            console.error('❌ toggleMic: Error muting/unmuting published stream:', muteError);
+            // Fallback: try with the stream object
+            try {
+              await zegoEngine.mutePublishStreamAudio(localZegoStream, !audioTrack.enabled);
+              console.log('✅ toggleMic: Published stream audio muted (fallback):', !audioTrack.enabled);
+            } catch (fallbackError) {
+              console.error('❌ toggleMic: Fallback mute/unmute also failed:', fallbackError);
+            }
+          }
+        } else {
+          console.log('🔍 DEBUG - toggleMic: No streamID available, skipping mute/unmute');
+        }
       } else {
         console.log('🔍 DEBUG - toggleMic: No audio track found');
       }
@@ -755,6 +848,8 @@ export default function RoomPage({ params }: RoomPageProps) {
     router.push('/');
   };
 
+
+
   // Show loading state during SSR or when not yet client-side
   if (!isClient) {
     return (
@@ -771,7 +866,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         ref={videoRef}
         autoPlay
         playsInline
-        muted
+        muted={isHost} // Only mute for host to prevent echo, viewers need to hear
         className="w-full h-full object-cover"
       />
       
@@ -787,6 +882,8 @@ export default function RoomPage({ params }: RoomPageProps) {
           </div>
         </div>
       )}
+
+
       
       {/* Top Controls - Only show when not streaming */}
       {!isStreaming && (

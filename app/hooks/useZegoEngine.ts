@@ -134,6 +134,19 @@ export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewe
           // Fetch updated participants when stream starts/ends
           fetchParticipantsFromDB();
           
+          // For viewers, ensure audio permissions are granted
+          if (!isHost && updateType === 'ADD') {
+            try {
+              // Request audio permissions for viewers to ensure they can hear
+              const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+              console.log('✅ Audio permissions granted for viewer');
+              // Stop the audio stream immediately as we don't need it for playback
+              audioStream.getTracks().forEach(track => track.stop());
+            } catch (audioError) {
+              console.warn('⚠️ Audio permissions not granted for viewer:', audioError);
+            }
+          }
+          
           if (updateType === 'ADD') {
             // Step 3 & 4: New stream added, start playing the stream (for viewers)
             for (const stream of streamList) {
@@ -204,6 +217,24 @@ export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewe
                   // Enable audio for the remote stream
                   await zg.mutePlayStreamAudio(stream.streamID, false);
                   console.log('✅ Audio enabled for remote stream:', stream.streamID);
+                  
+                  // Also ensure the video element can play audio
+                  const videoElement = document.querySelector('video');
+                  if (videoElement) {
+                    videoElement.muted = false;
+                    videoElement.volume = 1.0;
+                    console.log('✅ Video element audio settings: muted = false, volume = 1.0');
+                    
+                    // Debug: Check video element audio status
+                    setTimeout(() => {
+                      console.log('🔍 DEBUG - Video element audio status:');
+                      console.log('  - muted:', videoElement.muted);
+                      console.log('  - volume:', videoElement.volume);
+                      console.log('  - readyState:', videoElement.readyState);
+                      console.log('  - paused:', videoElement.paused);
+                      console.log('  - srcObject tracks:', videoElement.srcObject ? (videoElement.srcObject as MediaStream).getTracks() : 'null');
+                    }, 2000);
+                  }
                 } catch (error) {
                   console.error('❌ Error enabling audio for remote stream:', error);
                 }
