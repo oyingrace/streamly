@@ -23,7 +23,7 @@ export default function RoomControls({
 }: RoomControlsProps) {
   if (isHost) {
     return (
-      <div className="absolute bottom-0 right-0 z-10 flex items-center gap-2 p-4 sm:p-6">
+      <div className="absolute bottom-4 sm:bottom-6 right-0 z-10 flex items-center gap-2 p-4 sm:p-6">
         {/* Switch Camera */}
         <button
           onClick={onSwitchCamera}

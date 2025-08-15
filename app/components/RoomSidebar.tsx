@@ -13,7 +13,7 @@ export default function RoomSidebar({
   onShowChat,
 }: RoomSidebarProps) {
   return (
-    <div className="absolute bottom-0 left-0 z-10 p-4 sm:p-6 flex flex-col gap-3">
+    <div className="absolute bottom-4 sm:bottom-6 left-0 z-10 p-4 sm:p-6 flex flex-col gap-3">
       {/* Heart Button */}
       <HeartButton onSendHeart={onSendHeart} />
       
