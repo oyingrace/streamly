@@ -63,9 +63,9 @@ export default function ChatInput({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50">
-      <div className="bg-gray-900 rounded-t-xl shadow-2xl w-full max-w-md mx-4 mb-0">
+      <div className="bg-gray-900 rounded-t-xl shadow-2xl w-full max-w-sm mx-2 sm:mx-4 mb-0">
         {/* Header */}
-        <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
+        <div className="flex items-center justify-between px-2 sm:px-3 py-2 border-b border-gray-700">
           <button
             onClick={onClose}
             className="text-gray-400 hover:text-gray-300 transition-colors p-1"
@@ -75,7 +75,7 @@ export default function ChatInput({
         </div>
 
         {/* Input Area */}
-        <div className="p-3">
+        <div className="p-2 sm:p-3">
           <div className="flex items-center gap-2">
             <input
               ref={inputRef}
@@ -84,13 +84,13 @@ export default function ChatInput({
               onChange={(e) => setMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={placeholder}
-              className="flex-1 px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
+              className="flex-1 px-2 sm:px-3 py-1.5 bg-gray-800 border border-gray-600 rounded text-white placeholder-gray-400 focus:outline-none focus:ring-1 focus:ring-blue-500 focus:border-blue-500 text-sm"
               maxLength={100}
             />
             <button
               onClick={handleSend}
               disabled={!message.trim()}
-              className={`p-1.5 rounded transition-colors ${
+              className={`p-1.5 rounded transition-colors flex-shrink-0 ${
                 message.trim()
                   ? 'bg-blue-600 hover:bg-blue-700 text-white'
                   : 'bg-gray-700 text-gray-500 cursor-not-allowed'
