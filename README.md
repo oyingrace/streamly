@@ -1,36 +1,59 @@
-# Streamly - Live Streaming Platform
+# Streamly - Live Streaming for Everyone
 
-A modern live streaming application built with Next.js, featuring real-time video streaming, chat, and viewer interaction.
+A live streaming Mini App that connects creators and communities through real-time video streaming, chat, and interactive features.
 
-## Features
+![Streamly Hero](public/hero.png)
+
+## Current Features
 
 - 🎥 **Live Video Streaming** - Real-time video/audio streaming using Zego Express Engine
-- 💬 **Live Chat** - Real-time messaging between viewers and hosts
-- 🎯 **Bullet Screen** - Messages that scroll across the screen
-- ❤️ **Heart Reactions** - Interactive engagement features
-- 👥 **Viewer Tracking** - Real-time viewer count and participant list
-- 📊 **Database Integration** - Persistent storage with Supabase
-- 📱 **Responsive Design** - Mobile-friendly interface
+- 💬 **Live Chat** - Real-time messaging between viewers and hosts 
+- 🎯 **Bullet Screen** - Messages that scroll across the screen for dynamic interaction
+- ❤️ **Heart Reactions** - Interactive engagement with heart emoji reactions
+- 👥 **Real-time Viewer Tracking** - Accurate unique viewer counting and participant list
+- 🖼️ **Farcaster Integration** - Real profile pictures, usernames, and FIDs
+- 📱 **Mobile-First Design** - Optimized for mobile streaming experience
+- 🔒 **Mini App Security** - Only accessible within Farcaster and Base App
+- 📊 **Database Integration** - Persistent storage with Supabase PostgreSQL
+
+## Upcoming Features
+
+- 🏆 **Streamers Leaderboard** - Track and display top streamers
+- 👥 **Add/Invite Co-host** - Multi-host streaming capabilities
+- 🖥️ **Share Screen** - Screen sharing functionality
+- ✨ **AI Effects** - Face enhancement and filters
+- 🎵 **Audio Effects** - Voice filters and audio enhancement
+- ☁️ **Stream Cloud Recording** - Save and replay streams
+
+## View the App
+
+**To experience Streamly in action:**
+- Cast this link in Farcaster or Base App: [https://streamly-app.vercel.app](https://streamly-app.vercel.app)
+
 
 ## Tech Stack
 
 - **Frontend**: Next.js 15, React 19, TypeScript, Tailwind CSS
-- **Real-time**: Zego Express Engine WebRTC SDK
+- **Real-time Streaming**: Zego Express Engine WebRTC SDK
 - **Database**: Supabase (PostgreSQL)
-- **UI**: Lucide React icons, custom components
+- **Farcaster Integration**: @farcaster/miniapp-sdk
+- **UI Components**: Lucide React icons, custom components
+- **Deployment**: Vercel
 
 ## Getting Started
 
 ### Prerequisites
 
-1. **Supabase Account** - Create a project at [supabase.com](https://supabase.com)
-2. **Zego Account** - Sign up at [zego.im](https://zego.im) for streaming services
+1. **Farcaster Account** - Required for Mini App development
+2. **Supabase Account** - Create a project at [supabase.com](https://supabase.com)
+3. **Zego Account** - Sign up at [zego.im](https://zegocloud.com) for streaming services
+4. **Node.js 22+** - Required for development
 
 ### Setup
 
 1. **Clone the repository**
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/oyingrace/streamly.git
    cd streamly
    ```
 
@@ -45,49 +68,75 @@ A modern live streaming application built with Next.js, featuring real-time vide
    ```
    
    Fill in your environment variables:
-   - `NEXT_PUBLIC_SUPABASE_URL` - Your Supabase project URL
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Your Supabase anonymous key
-   - `NEXT_PUBLIC_ZEGO_APP_ID` - Your Zego App ID
-   - `NEXT_PUBLIC_ZEGO_SERVER_URL` - Your Zego Server URL
-   - `ZEGO_SERVER_SECRET` - Your Zego Server Secret
+   ```env
+   # Supabase Configuration
+   NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+   NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+   
+   # Zego Configuration
+   NEXT_PUBLIC_ZEGO_APP_ID=your_zego_app_id
+   NEXT_PUBLIC_ZEGO_SERVER_URL=your_zego_server_url
+   ZEGO_SERVER_SECRET=your_zego_server_secret
+   ```
 
 4. **Set up the database**
    - Go to your Supabase project SQL Editor
    - Run the schema file: `schema/01_create_tables.sql`
+   - This creates all necessary tables for rooms, participants, and messages
 
-5. **Run the development server**
+5. **Configure Next.js for images**
+   - The `next.config.ts` is already configured for miniapp profile images
+   - Images from `imagedelivery.net` are whitelisted
+
+6. **Run the development server**
    ```bash
    npm run dev
    ```
 
-6. **Open your browser**
-   Navigate to [http://localhost:3000](http://localhost:3000)
+7. **Test the Mini App**
+   - Use the Farcaster Mini App Preview Tool: [https://farcaster.xyz/~/developers/mini-apps/preview](https://farcaster.xyz/~/developers/mini-apps/preview)
+   - Enter your local development URL: `http://localhost:3000`
 
 ## Usage
 
-1. **Create a Live Stream**
-   - Click "Create Live" on the home page
-   - A new room will be created and you'll be taken to the streaming interface
+### For Hosts
+1. **Create a Stream** - Click "Create Live" on the home page
+2. **Start Broadcasting** - Click "Start Stream" to begin
+3. **Interact with Audience** - See chat messages and heart reactions
+4. **Manage Stream** - Use controls to mute/unmute, switch cameras, or end stream
 
-2. **Start Streaming**
-   - Click the "Start Stream" button to begin broadcasting
-   - Your stream will appear on the home page for others to join
+### For Audience
+1. **Browse Live Streams** - View all active streams on the home page
+2. **Join a Stream** - Click on any live stream to join
+3. **Engage** - Send chat messages, heart reactions, and interact with the host
+4. **View Audience** - See who else is watching the stream
 
-3. **Join as Viewer**
-   - Click on any live stream from the home page
-   - You can chat, send hearts, and interact with the stream
 
-## Database Schema
+## Mini App Features
 
-The application uses PostgreSQL with the following main tables:
-- `rooms` - Stores room information and stream status
-- `room_participants` - Tracks who's in each room
-- `stream_messages` - Stores chat and bullet screen messages
+### Farcaster Integration
+- **Real User Data** - Uses actual miniapp FIDs, usernames, and profile pictures
+- **Embed Support** - Shareable embeds with rich previews in Farcaster & Mini App feeds
+- **Environment Detection** - Only works within Farcaster and Base App
+- **Background Fetching** - Real-time updates every 30 seconds
 
-See `schema/README.md` for detailed database documentation.
+### Embed Configuration
+The app includes embed meta tags for sharing in feeds:
+- Rich preview images
+- "🎥 Open Streamly" call-to-action button
+- Direct Mini App launch functionality
 
 ## Learn More
 
+- [Farcaster Mini Apps Documentation](https://docs.farcaster.xyz/developers/mini-apps)
 - [Next.js Documentation](https://nextjs.org/docs)
-- [Zego Express Engine](https://docs.zego.im/article/14663)
+- [ZegoCloud Documentation for Web](https://www.zegocloud.com/docs/live-streaming/overview?platform=web&language=javascript)
 - [Supabase Documentation](https://supabase.com/docs)
+
+## Contributing
+
+Contributions are welcome! Please ensure all changes maintain compatibility with the Mini App environment.
+
+---
+
+**Built with ❤️ by [DevQueen](x.com/devqueen_)**
