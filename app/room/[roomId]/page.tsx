@@ -52,23 +52,46 @@ export default function RoomPage({ params }: RoomPageProps) {
   useEffect(() => {
     const checkRoomAndJoin = async () => {
       try {
+        // Get current user's Farcaster data
+        const context = await sdk.context;
+        const currentUserId = context.user.fid.toString();
+        
         // Fetch room details
         const response = await fetch(`/api/rooms/${roomId}`);
         if (response.ok) {
           const { room } = await response.json();
           setRoomData(room);
           
+          // Check if current user is the host of this room
+          const isCurrentUserHost = room.host_user_id === currentUserId;
+          
           // Check if room exists and is live
           if (room.status === 'live') {
-            // Join as viewer
-            await joinAsViewer();
+            if (isCurrentUserHost) {
+              // Original host rejoining a live stream
+              setIsHost(true);
+              setCurrentUserID(currentUserId);
+              console.log('✅ Original host rejoining live stream');
+            } else {
+              // Regular viewer joining
+              await joinAsViewer();
+            }
           } else if (room.status === 'created') {
-            // This is the host, set as host
-            setIsHost(true);
+            if (isCurrentUserHost) {
+              // Original host of a created room
+              setIsHost(true);
+              setCurrentUserID(currentUserId);
+              console.log('✅ Original host of created room');
+            } else {
+              // Someone else trying to access a created room (shouldn't happen)
+              console.log('⚠️ Non-host trying to access created room');
+              setIsHost(false);
+            }
           }
         } else {
           // Room doesn't exist, this is a new room creation
           setIsHost(true);
+          setCurrentUserID(currentUserId);
         }
       } catch (error) {
         console.error('Error checking room:', error);
@@ -106,17 +129,23 @@ export default function RoomPage({ params }: RoomPageProps) {
 
       if (response.ok) {
         setCurrentUserID(viewerUserId);
-        console.log('✅ Step 1: Joined as viewer in database');
+        console.log('✅ Step 1: Joined as participant in database');
+        
+        // Check if this user is actually the host (for rejoining hosts)
+        if (roomData && roomData.host_user_id === viewerUserId) {
+          setIsHost(true);
+          console.log('✅ Host rejoined and was recognized');
+        }
         
         // Step 2: Initialize Zego and join room (this will happen in the existing useEffect)
         // The existing initializeZego function will handle the Zego login
         // Step 3: Start playing stream (handled by roomStreamUpdate event)
         // Step 4: Create video view (handled by roomStreamUpdate event)
       } else {
-        console.error('Failed to join as viewer in database');
+        console.error('Failed to join as participant in database');
       }
     } catch (error) {
-      console.error('Error joining as viewer:', error);
+      console.error('Error joining as participant:', error);
     }
   };
 
@@ -652,6 +681,12 @@ export default function RoomPage({ params }: RoomPageProps) {
       // Update database to mark stream as live
       if (isHost) {
         try {
+          // Get Farcaster user data for the host
+          const context = await sdk.context;
+          const hostUserId = context.user.fid.toString();
+          const hostUsername = context.user.username || 'Anonymous';
+          const hostPfpUrl = context.user.pfpUrl;
+          
           const response = await fetch(`/api/rooms/${roomId}`, {
             method: 'PATCH',
             headers: {
@@ -659,8 +694,9 @@ export default function RoomPage({ params }: RoomPageProps) {
             },
             body: JSON.stringify({
               action: 'start_stream',
-              userId: currentUserID,
-              username: roomData?.host_username || 'Host',
+              userId: hostUserId,
+              username: hostUsername,
+              pfpUrl: hostPfpUrl,
             }),
           });
 

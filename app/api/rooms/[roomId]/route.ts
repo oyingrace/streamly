@@ -124,12 +124,13 @@ export async function PATCH(
           role: 'host'
         });
 
-      // Update viewer count to include host
+      // Update current viewers count (excluding host)
       const { data: participants, error: countError } = await supabase
         .from('room_participants')
         .select('id')
         .eq('room_id', data.id)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('role', 'viewer');
 
       if (!countError && participants) {
         await supabase
@@ -178,40 +179,62 @@ export async function PATCH(
 
     if (action === 'join_viewer') {
       // Join as viewer
-              const { data: room, error: roomError } = await supabase
-          .from('rooms')
-          .select('id')
-          .eq('room_id', roomId)
-          .eq('status', 'live')
-          .single();
+      const { data: room, error: roomError } = await supabase
+        .from('rooms')
+        .select('id, host_user_id')
+        .eq('room_id', roomId)
+        .eq('status', 'live')
+        .single();
 
       if (roomError) {
         console.error('Error finding room:', roomError);
         return NextResponse.json({ error: 'Room not found or not live' }, { status: 404 });
       }
 
-      // Add viewer as participant
-      const { error: participantError } = await supabase
-        .from('room_participants')
-        .insert({
-          room_id: room.id,
-          user_id: userId,
-          username: username,
-          pfp_url: pfpUrl,
-          role: 'viewer'
-        });
+      // Check if this user is actually the host
+      if (room.host_user_id === userId) {
+        // This is the host rejoining, add them as host
+        const { error: participantError } = await supabase
+          .from('room_participants')
+          .insert({
+            room_id: room.id,
+            user_id: userId,
+            username: username,
+            pfp_url: pfpUrl,
+            role: 'host'
+          });
 
-      if (participantError) {
-        console.error('Error adding participant:', participantError);
-        return NextResponse.json({ error: 'Failed to join room' }, { status: 500 });
+        if (participantError) {
+          console.error('Error adding host participant:', participantError);
+          return NextResponse.json({ error: 'Failed to join room as host' }, { status: 500 });
+        }
+
+        console.log('✅ Host rejoined the room');
+      } else {
+        // This is a regular viewer
+        const { error: participantError } = await supabase
+          .from('room_participants')
+          .insert({
+            room_id: room.id,
+            user_id: userId,
+            username: username,
+            pfp_url: pfpUrl,
+            role: 'viewer'
+          });
+
+        if (participantError) {
+          console.error('Error adding participant:', participantError);
+          return NextResponse.json({ error: 'Failed to join room' }, { status: 500 });
+        }
       }
 
-      // Update viewer count
+      // Update current viewers count (excluding host)
       const { data: participants, error: countError } = await supabase
         .from('room_participants')
         .select('id')
         .eq('room_id', room.id)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('role', 'viewer');
 
       if (!countError && participants) {
         await supabase
@@ -246,12 +269,13 @@ export async function PATCH(
         .eq('room_id', room.id)
         .eq('user_id', userId);
 
-      // Update viewer count
+      // Update current viewers count (excluding host)
       const { data: participants, error: countError } = await supabase
         .from('room_participants')
         .select('id')
         .eq('room_id', room.id)
-        .eq('is_active', true);
+        .eq('is_active', true)
+        .eq('role', 'viewer');
 
       if (!countError && participants) {
         await supabase
