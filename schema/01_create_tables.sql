@@ -93,21 +93,30 @@ CREATE TRIGGER calculate_stream_duration_trigger
   FOR EACH ROW
   EXECUTE FUNCTION calculate_stream_duration();
 
--- Create a function to update total viewers count
+-- Create a function to update total viewers count (unique viewers only)
 CREATE OR REPLACE FUNCTION update_total_viewers()
 RETURNS TRIGGER AS $$
+DECLARE
+  unique_viewers_count INTEGER;
 BEGIN
-  IF TG_OP = 'INSERT' THEN
-    UPDATE rooms 
-    SET total_viewers = total_viewers + 1 
-    WHERE id = NEW.room_id;
-  END IF;
+  -- Count unique viewers (excluding host) for this room
+  SELECT COUNT(DISTINCT user_id) INTO unique_viewers_count
+  FROM room_participants 
+  WHERE room_id = NEW.room_id 
+    AND role = 'viewer' 
+    AND is_active = true;
+  
+  -- Update the total_viewers count
+  UPDATE rooms 
+  SET total_viewers = unique_viewers_count
+  WHERE id = NEW.room_id;
+  
   RETURN NEW;
 END;
 $$ language 'plpgsql';
 
--- Create trigger to update total viewers when someone joins
+-- Create trigger to update total viewers when participants change
 CREATE TRIGGER update_total_viewers_trigger
-  AFTER INSERT ON room_participants
+  AFTER INSERT OR UPDATE OR DELETE ON room_participants
   FOR EACH ROW
   EXECUTE FUNCTION update_total_viewers();
