@@ -3,10 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import FarcasterSDK from "./components/FarcasterSDK";
 import { streamlyEmbed, streamlyEmbedFrame } from "./lib/embedConfig";
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { WagmiProvider } from 'wagmi';
 import { Toaster } from 'react-hot-toast';
-import WagmiConfig from './components/WagmiConfig';
+import QueryConfig from './components/QueryConfig';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -27,8 +25,6 @@ export const metadata: Metadata = {
   },
 };
 
-const queryClient = new QueryClient();
-
 export default function RootLayout({
   children,
 }: Readonly<{
@@ -39,23 +35,21 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <QueryClientProvider client={queryClient}>
-          <WagmiConfig>
-            <FarcasterSDK />
-            {children}
-            <Toaster 
-              position="top-center"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#1f2937',
-                  color: '#fff',
-                  borderRadius: '8px',
-                },
-              }}
-            />
-          </WagmiConfig>
-        </QueryClientProvider>
+        <QueryConfig>
+          <FarcasterSDK />
+          {children}
+          <Toaster 
+            position="top-center"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#1f2937',
+                color: '#fff',
+                borderRadius: '8px',
+              },
+            }}
+          />
+        </QueryConfig>
       </body>
     </html>
   );
