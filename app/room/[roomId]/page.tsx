@@ -1004,6 +1004,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         roomId={roomId}
         title="Viewers"
         hostUsername={roomData?.host_username}
+        isStreaming={isStreaming || isWatching}
       />
 
       {/* Chat Input */}

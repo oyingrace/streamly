@@ -49,6 +49,18 @@ export default function Home() {
     }
   }, [isMiniApp]);
 
+  // Background fetching for live streams (periodic refresh)
+  useEffect(() => {
+    if (isMiniApp === true) {
+      // Set up periodic refresh every 30 seconds
+      const interval = setInterval(() => {
+        fetchLiveStreams();
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [isMiniApp]);
+
   const fetchLiveStreams = async () => {
     try {
       const response = await fetch('/api/rooms');
