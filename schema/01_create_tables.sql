@@ -13,8 +13,9 @@ CREATE TYPE message_type AS ENUM ('chat', 'heart', 'system');
 CREATE TABLE rooms (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   room_id TEXT UNIQUE NOT NULL, -- The actual room ID used in the app (e.g., "abc123")
-  host_user_id TEXT NOT NULL, -- Zego user ID (e.g., "user_123456789")
-  host_username TEXT DEFAULT 'Host',
+  host_user_id TEXT NOT NULL, -- Farcaster FID (e.g., "12345")
+  host_username TEXT DEFAULT 'Host', -- Farcaster username (e.g., "alice.eth")
+  host_pfp_url TEXT, -- Farcaster profile picture URL
   status room_status DEFAULT 'created',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   stream_started_at TIMESTAMP WITH TIME ZONE,
@@ -30,8 +31,9 @@ CREATE TABLE rooms (
 CREATE TABLE room_participants (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   room_id UUID REFERENCES rooms(id) ON DELETE CASCADE,
-  user_id TEXT NOT NULL, -- Zego user ID
-  username TEXT DEFAULT 'Anonymous',
+  user_id TEXT NOT NULL, -- Farcaster FID (e.g., "12345")
+  username TEXT DEFAULT 'Anonymous', -- Farcaster username (e.g., "alice.eth")
+  pfp_url TEXT, -- Farcaster profile picture URL
   role participant_role DEFAULT 'viewer',
   joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   left_at TIMESTAMP WITH TIME ZONE,
@@ -42,8 +44,8 @@ CREATE TABLE room_participants (
 CREATE TABLE stream_messages (
   id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
   room_id UUID REFERENCES rooms(id) ON DELETE CASCADE,
-  user_id TEXT NOT NULL,
-  username TEXT DEFAULT 'Anonymous',
+  user_id TEXT NOT NULL, -- Farcaster FID (e.g., "12345")
+  username TEXT DEFAULT 'Anonymous', -- Farcaster username (e.g., "alice.eth")
   message TEXT NOT NULL,
   message_type message_type DEFAULT 'chat',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
