@@ -3,8 +3,6 @@
 import { useState, useEffect } from 'react';
 import { useAccount, useConnect, useSendTransaction, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
 import toast from 'react-hot-toast';
-import { HelpCircle } from 'lucide-react';
-import { useStreamingEligibility } from '../hooks/useStreamingEligibility';
 import { dailyClaimAbi, CONTRACTS, ERROR_MESSAGES } from '../lib/contracts';
 import { sdk } from '@farcaster/miniapp-sdk';
 
@@ -13,8 +11,6 @@ interface ClaimButtonProps {
 }
 
 export default function ClaimButton({ className = '' }: ClaimButtonProps) {
-  const [userId, setUserId] = useState<string | null>(null);
-  
   // Wagmi hooks
   const { isConnected, address } = useAccount();
   const { connect, connectors } = useConnect();
@@ -35,29 +31,12 @@ export default function ClaimButton({ className = '' }: ClaimButtonProps) {
     hash, 
   });
 
-  // Streaming eligibility
-  const { eligible, loading: eligibilityLoading, error: eligibilityError, refreshEligibility } = useStreamingEligibility(userId);
-
-  // Get user ID from Farcaster SDK
-  useEffect(() => {
-    const getUserData = async () => {
-      try {
-        const context = await sdk.context;
-        setUserId(context.user.fid.toString());
-      } catch (error) {
-        console.error('Error getting user data:', error);
-      }
-    };
-    getUserData();
-  }, []);
-
   // Handle transaction success
   useEffect(() => {
     if (isConfirmed) {
       toast.success(`✅ You claimed your daily ${formatTokenAmount(claimAmount)} $STREAM reward!`);
-      refreshEligibility(); // Refresh eligibility after successful claim
     }
-  }, [isConfirmed, claimAmount, refreshEligibility]);
+  }, [isConfirmed, claimAmount]);
 
   // Handle transaction error
   useEffect(() => {
@@ -98,12 +77,6 @@ export default function ClaimButton({ className = '' }: ClaimButtonProps) {
   };
 
   const handleClaim = async () => {
-    // Check eligibility first
-    if (!eligible) {
-      toast.error('You need to stream or watch for at least 2 minutes to claim tokens.');
-      return;
-    }
-
     // Connect wallet if not connected
     if (!isConnected) {
       try {
@@ -137,8 +110,6 @@ export default function ClaimButton({ className = '' }: ClaimButtonProps) {
 
   // Determine button state and text
   const getButtonState = () => {
-    if (eligibilityLoading) return { text: 'Claim', disabled: true };
-    if (!eligible) return { text: 'Claim', disabled: true };
     if (!isConnected) return { text: 'Claim', disabled: false };
     if (isPending) return { text: 'Claiming...', disabled: true };
     if (isConfirming) return { text: 'Claiming...', disabled: true };
@@ -149,33 +120,17 @@ export default function ClaimButton({ className = '' }: ClaimButtonProps) {
   const { text, disabled } = getButtonState();
 
   return (
-    <div className="flex items-center gap-2">
-      <button
-        onClick={handleClaim}
-        disabled={disabled}
-        className={`
-          bg-white text-black font-semibold py-3 px-6 rounded-lg
-          hover:bg-gray-100 disabled:bg-gray-200 disabled:text-gray-500
-          transition-colors duration-200 shadow-md
-          ${className}
-        `}
-      >
-        {text}
-      </button>
-      
-      {/* Tooltip with question mark icon */}
-      <div className="relative group">
-        <HelpCircle 
-          className="w-5 h-5 text-gray-400 hover:text-gray-300 cursor-help transition-colors" 
-        />
-        
-        {/* Tooltip content */}
-        <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-3 py-2 bg-gray-800 text-white text-sm rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 pointer-events-none whitespace-nowrap z-10">
-          Stream a live or join a live stream for 2 mins + to claim
-          {/* Arrow */}
-          <div className="absolute top-full left-1/2 transform -translate-x-1/2 w-0 h-0 border-l-4 border-r-4 border-t-4 border-transparent border-t-gray-800"></div>
-        </div>
-      </div>
-    </div>
+    <button
+      onClick={handleClaim}
+      disabled={disabled}
+      className={`
+        bg-white text-black font-semibold py-3 px-6 rounded-lg
+        hover:bg-gray-100 disabled:bg-gray-200 disabled:text-gray-500
+        transition-colors duration-200 shadow-md
+        ${className}
+      `}
+    >
+      {text}
+    </button>
   );
 }
