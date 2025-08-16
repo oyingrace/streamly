@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from 'react';
 import { X, Users, Loader2 } from 'lucide-react';
+import Image from 'next/image';
 
 interface Viewer {
   userID: string;
   userName?: string;
+  pfpUrl?: string;
 }
 
 interface ShowViewersProps {
@@ -48,7 +50,8 @@ export default function ShowViewers({
         // Transform database participants to match our interface
         const viewersList = participants.map((participant: any) => ({
           userID: participant.user_id,
-          userName: participant.username
+          userName: participant.username,
+          pfpUrl: participant.pfp_url
         }));
         
         setViewers(viewersList);
@@ -174,7 +177,7 @@ export default function ShowViewers({
                   displayName = `(Host) ${displayName}`;
                 }
                 
-                // Get first character for profile picture
+                // Get first character for fallback profile picture
                 const firstChar = displayName.charAt(0).toUpperCase();
                 
                 return (
@@ -182,9 +185,21 @@ export default function ShowViewers({
                     key={`${viewer.userID}-${index}`} 
                     className="flex items-center gap-2 sm:gap-3 p-2 bg-gray-800 rounded-lg border border-gray-700 hover:bg-gray-750 transition-colors min-w-0"
                   >
-                    <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
-                      {firstChar}
-                    </div>
+                    {viewer.pfpUrl ? (
+                      <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                        <Image 
+                          src={viewer.pfpUrl} 
+                          alt={`${displayName}'s profile`}
+                          width={24}
+                          height={24}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                        {firstChar}
+                      </div>
+                    )}
                     <div className="flex-1 min-w-0 overflow-hidden">
                       <p className="text-sm font-medium text-white truncate">
                         {displayName}

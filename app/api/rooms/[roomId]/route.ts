@@ -27,7 +27,7 @@ export async function GET(
       // Get active participants
       const { data: participants, error: participantsError } = await supabase
         .from('room_participants')
-        .select('user_id, username, role')
+        .select('user_id, username, pfp_url, role')
         .eq('room_id', room.id)
         .eq('is_active', true);
 
@@ -94,7 +94,7 @@ export async function PATCH(
 ) {
   try {
     const { roomId } = await params;
-    const { action, userId, username } = await request.json();
+    const { action, userId, username, pfpUrl } = await request.json();
 
     if (action === 'start_stream') {
       // Start streaming
@@ -120,6 +120,7 @@ export async function PATCH(
           room_id: data.id,
           user_id: userId,
           username: username,
+          pfp_url: pfpUrl,
           role: 'host'
         });
 
@@ -196,6 +197,7 @@ export async function PATCH(
           room_id: room.id,
           user_id: userId,
           username: username,
+          pfp_url: pfpUrl,
           role: 'viewer'
         });
 

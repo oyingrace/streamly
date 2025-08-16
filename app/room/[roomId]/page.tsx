@@ -12,6 +12,7 @@ import RoomSidebar from '../../components/RoomSidebar';
 import RoomStatus from '../../components/RoomStatus';
 import RoomTopControls from '../../components/RoomTopControls';
 import { useZegoEngine } from '../../hooks/useZegoEngine';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 interface RoomPageProps {
   params: Promise<{
@@ -83,8 +84,11 @@ export default function RoomPage({ params }: RoomPageProps) {
 
   const joinAsViewer = async () => {
     try {
-      const viewerUserId = `viewer_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      const viewerUsername = `Viewer_${Math.random().toString(36).substring(2, 6)}`;
+      // Get Farcaster user data
+      const context = await sdk.context;
+      const viewerUserId = context.user.fid.toString();
+      const viewerUsername = context.user.username || 'Anonymous';
+      const viewerPfpUrl = context.user.pfpUrl;
       
       // Step 1: Call database API to join as participant
       const response = await fetch(`/api/rooms/${roomId}`, {
@@ -96,6 +100,7 @@ export default function RoomPage({ params }: RoomPageProps) {
           action: 'join_viewer',
           userId: viewerUserId,
           username: viewerUsername,
+          pfpUrl: viewerPfpUrl,
         }),
       });
 
@@ -910,6 +915,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         <>
           <RoomHeader
             hostUsername={roomData?.host_username || 'Host'}
+            hostPfpUrl={roomData?.host_pfp_url}
             viewerCount={viewerCount}
             isHost={isHost}
             onShowViewersList={() => setShowViewersList(true)}
