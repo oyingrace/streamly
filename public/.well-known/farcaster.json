@@ -1,0 +1,37 @@
+{
+    "frame": {
+      "name": "Streamly",
+      "version": "1",
+      "iconUrl": "https://streamly-app.vercel.app/icon.png",
+      "homeUrl": "https://streamly-app.vercel.app",
+      "imageUrl": "https://streamly-app.vercel.app/image.png",
+      "buttonTitle": "Open Streamly",
+      "splashImageUrl": "https://streamly-app.vercel.app/splash.png",
+      "splashBackgroundColor": "#ffffff",
+      "webhookUrl": "https://streamly-app.vercel.app/api/webhook",
+      "subtitle": "Go live in seconds. Connect with everyone.",
+      "description": "Instant live streaming for creators and viewers.",
+      "primaryCategory": "social",
+      "screenshotUrls": [
+        "https://streamly-app.vercel.app/screenshot.png"
+      ],
+      "heroImageUrl": "https://streamly-app.vercel.app/hero.png",
+      "tags": [
+        "social",
+        "livestream",
+        "community",
+        "connect",
+        "engage"
+      ],
+      "tagline": "Share live moments",
+      "ogTitle": "Streamly",
+      "ogDescription": "Go live in seconds. Connect with everyone.",
+      "ogImageUrl": "https://streamly-app.vercel.app/hero.png",
+      "castShareUrl": "https://streamly-app.vercel.app/share"
+    },
+    "accountAssociation": {
+      "header": "eyJmaWQiOjExNDQ0NjYsInR5cGUiOiJhdXRoIiwia2V5IjoiMHhiNUEyNjllODg1Njc3OWFkNDc5NTY0RTMyMmMzRUZFN2IzQmJhNzk1In0",
+      "payload": "eyJkb21haW4iOiJzdHJlYW1seS1hcHAudmVyY2VsLmFwcCJ9",
+      "signature": "IblxXtgXSNzH2iXYCSKR+ka93xKCIus5iPZKXaYuiLI4f9THdzbq9sueqYuzK4t3apxWkzipVoFeMkghuQLraxs="
+    }
+  }
