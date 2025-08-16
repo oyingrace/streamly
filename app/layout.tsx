@@ -5,8 +5,8 @@ import FarcasterSDK from "./components/FarcasterSDK";
 import { streamlyEmbed, streamlyEmbedFrame } from "./lib/embedConfig";
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { WagmiProvider } from 'wagmi';
-import { config } from './lib/wagmi';
 import { Toaster } from 'react-hot-toast';
+import WagmiConfig from './components/WagmiConfig';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -39,8 +39,8 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <WagmiProvider config={config}>
-          <QueryClientProvider client={queryClient}>
+        <QueryClientProvider client={queryClient}>
+          <WagmiConfig>
             <FarcasterSDK />
             {children}
             <Toaster 
@@ -54,8 +54,8 @@ export default function RootLayout({
                 },
               }}
             />
-          </QueryClientProvider>
-        </WagmiProvider>
+          </WagmiConfig>
+        </QueryClientProvider>
       </body>
     </html>
   );
