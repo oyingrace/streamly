@@ -28,7 +28,7 @@ A live streaming Mini App that connects creators and communities through real-ti
 ## View the App
 
 **To experience Streamly in action:**
-- Cast this link in Farcaster or Base App: [https://streamly-app.vercel.app](https://streamly-app.vercel.app)
+- Click: [https://farcaster.xyz/miniapps/sPfnn2x8pvf7/streamly](https://farcaster.xyz/miniapps/sPfnn2x8pvf7/streamly)
 
 
 ## Tech Stack
