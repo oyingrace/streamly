@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { useAccount, useConnect, useSendTransaction, useWaitForTransactionReceipt, useReadContract } from 'wagmi';
-import { type BaseError } from 'wagmi';
 import toast from 'react-hot-toast';
 import { useStreamingEligibility } from '../hooks/useStreamingEligibility';
 import { dailyClaimAbi, CONTRACTS, ERROR_MESSAGES } from '../lib/contracts';
@@ -73,8 +72,8 @@ export default function ClaimButton({ className = '' }: ClaimButtonProps) {
     return (Number(amount) / 1e18).toString();
   };
 
-  const getErrorMessage = (error: BaseError) => {
-    const message = error.shortMessage || error.message;
+  const getErrorMessage = (error: any) => {
+    const message = error.shortMessage || error.message || error.toString();
     
     // Check for specific contract errors
     for (const [contractError, userMessage] of Object.entries(ERROR_MESSAGES)) {
