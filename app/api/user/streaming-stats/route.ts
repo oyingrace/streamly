@@ -26,12 +26,7 @@ export async function GET(request: NextRequest) {
         room_id,
         role,
         joined_at,
-        left_at,
-        rooms!inner(
-          room_id,
-          status,
-          stream_duration
-        )
+        left_at
       `)
       .eq('user_id', userId)
       .not('left_at', 'is', null) // Only completed sessions
@@ -56,7 +51,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       eligible: hasEligibleSession,
       latestSession: latestSession ? {
-        roomId: latestSession.rooms.room_id,
+        roomId: latestSession.room_id,
         role: latestSession.role,
         duration: latestSession.left_at && latestSession.joined_at 
           ? Math.floor((new Date(latestSession.left_at).getTime() - new Date(latestSession.joined_at).getTime()) / 1000)
