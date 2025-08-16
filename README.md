@@ -46,7 +46,7 @@ A live streaming Mini App that connects creators and communities through real-ti
 
 1. **Farcaster Account** - Required for Mini App development
 2. **Supabase Account** - Create a project at [supabase.com](https://supabase.com)
-3. **Zego Account** - Sign up at [zego.im](https://zegocloud.com) for streaming services
+3. **Zego Account** - Sign up at [zegocloud.com](https://zegocloud.com) for streaming services
 4. **Node.js 22+** - Required for development
 
 ### Setup
@@ -95,7 +95,7 @@ A live streaming Mini App that connects creators and communities through real-ti
 
 7. **Test the Mini App**
    - Use the Farcaster Mini App Preview Tool: [https://farcaster.xyz/~/developers/mini-apps/preview](https://farcaster.xyz/~/developers/mini-apps/preview)
-   - Enter your local development URL: `http://localhost:3000`
+   - Enter your deployed app url or You can use ngrok to expose your localhost server
 
 ## Usage
 
@@ -135,8 +135,8 @@ The app includes embed meta tags for sharing in feeds:
 
 ## Contributing
 
-Contributions are welcome! Please ensure all changes maintain compatibility with the Mini App environment.
+Contributions are welcome! Please read our [CONTRIBUTING.md](CONTRIBUTING.md) file for detailed guidelines on how to contribute to this project. Please ensure all changes maintain compatibility with the Mini App environment.
 
 ---
 
-**Built with ❤️ by [DevQueen](x.com/devqueen_)**
+**Built with ❤️ by [DevQueen](https://x.com/devqueen_)**
