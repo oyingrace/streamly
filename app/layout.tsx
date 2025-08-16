@@ -3,6 +3,8 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import FarcasterSDK from "./components/FarcasterSDK";
 import { streamlyEmbed, streamlyEmbedFrame } from "./lib/embedConfig";
+import { Toaster } from 'react-hot-toast';
+import QueryConfig from './components/QueryConfig';
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -33,8 +35,21 @@ export default function RootLayout({
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <FarcasterSDK />
-        {children}
+        <QueryConfig>
+          <FarcasterSDK />
+          {children}
+          <Toaster 
+            position="top-center"
+            toastOptions={{
+              duration: 4000,
+              style: {
+                background: '#1f2937',
+                color: '#fff',
+                borderRadius: '8px',
+              },
+            }}
+          />
+        </QueryConfig>
       </body>
     </html>
   );

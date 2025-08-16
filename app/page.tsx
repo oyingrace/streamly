@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Loader2, Plus } from 'lucide-react';
 import Image from 'next/image';
 import StreamGrid from './components/StreamGrid';
+import ClaimButton from './components/ClaimButton';
 import { sdk } from '@farcaster/miniapp-sdk';
 
 interface LiveStream {
@@ -160,13 +161,14 @@ export default function Home() {
   // Show normal app content if in Mini App
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
-      {/* Header */}
-      <div className="flex items-center justify-center py-6 px-4">
+      {/* Header with Claim Button */}
+      <div className="flex items-center justify-between py-6 px-4">
         <h1 className="text-2xl font-bold text-white">Streamly</h1>
+        <ClaimButton />
       </div>
 
       {/* Stream Grid */}
-      <div className="flex-1 pb-24">
+      <div className="flex-1 pb-24 mt-4">
         <StreamGrid 
           streams={liveStreams}
           onStreamClick={joinStream}
