@@ -49,6 +49,18 @@ export default function Home() {
     }
   }, [isMiniApp]);
 
+  // Background fetching for live streams (periodic refresh)
+  useEffect(() => {
+    if (isMiniApp === true) {
+      // Set up periodic refresh every 30 seconds
+      const interval = setInterval(() => {
+        fetchLiveStreams();
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [isMiniApp]);
+
   const fetchLiveStreams = async () => {
     try {
       const response = await fetch('/api/rooms');
@@ -139,12 +151,7 @@ export default function Home() {
           <p className="text-gray-300 text-lg mb-6">
             Please open this app in Farcaster or Base App to use Streamly.
           </p>
-          {/* <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
-            <p className="text-sm text-gray-400">
-              Streamly is designed to work within the Farcaster ecosystem. 
-              Open it from your Farcaster or Base App to start streaming and connecting with others.
-            </p>
-          </div> */}
+        
         </div>
       </div>
     );

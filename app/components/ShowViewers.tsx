@@ -16,14 +16,16 @@ interface ShowViewersProps {
   roomId: string;
   title?: string;
   hostUsername?: string;
+  isStreaming?: boolean; // Add streaming status prop
 }
 
 export default function ShowViewers({
   isOpen,
   onClose,
   roomId,
-  title = 'Viewers',
-  hostUsername
+  title = 'Participants',
+  hostUsername,
+  isStreaming = false
 }: ShowViewersProps) {
   const [viewers, setViewers] = useState<Viewer[]>([]);
   const [cachedViewers, setCachedViewers] = useState<Viewer[]>([]);
@@ -101,6 +103,21 @@ export default function ShowViewers({
       return () => clearTimeout(timer);
     }
   }, [isOpen]);
+
+  // Background fetching when streaming starts and periodic refresh
+  useEffect(() => {
+    if (isStreaming && roomId) {
+      // Initial fetch when streaming starts
+      fetchParticipants(true);
+      
+      // Set up periodic refresh every 30 seconds
+      const interval = setInterval(() => {
+        fetchParticipants(true);
+      }, 30000); // 30 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [isStreaming, roomId]);
 
   // Close when Escape key is pressed
   useEffect(() => {
