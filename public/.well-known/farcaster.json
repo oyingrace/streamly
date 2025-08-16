@@ -9,7 +9,7 @@
       "splashImageUrl": "https://streamly-app.vercel.app/splash.png",
       "splashBackgroundColor": "#ffffff",
       "webhookUrl": "https://streamly-app.vercel.app/api/webhook",
-      "subtitle": "Go live in seconds. Connect with everyone.",
+      "subtitle": "Go live.Connect with everyone",
       "description": "Instant live streaming for creators and viewers.",
       "primaryCategory": "social",
       "screenshotUrls": [
