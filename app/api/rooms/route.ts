@@ -9,6 +9,7 @@ export async function GET() {
       .select(`
         room_id,
         host_username,
+        host_pfp_url,
         current_viewers,
         total_viewers,
         created_at,
@@ -32,7 +33,7 @@ export async function GET() {
 // POST - Create a new room
 export async function POST(request: NextRequest) {
   try {
-    const { roomId, hostUserId, hostUsername } = await request.json();
+    const { roomId, hostUserId, hostUsername, hostPfpUrl } = await request.json();
 
     const { data, error } = await supabase
       .from('rooms')
@@ -40,6 +41,7 @@ export async function POST(request: NextRequest) {
         room_id: roomId,
         host_user_id: hostUserId,
         host_username: hostUsername,
+        host_pfp_url: hostPfpUrl,
         status: 'created'
       })
       .select()

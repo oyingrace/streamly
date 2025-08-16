@@ -4,7 +4,9 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Loader2, Plus } from 'lucide-react';
+import Image from 'next/image';
 import StreamGrid from './components/StreamGrid';
+import { sdk } from '@farcaster/miniapp-sdk';
 
 interface LiveStream {
   room_id: string;
@@ -19,12 +21,33 @@ export default function Home() {
   const [isLoading, setIsLoading] = useState(false);
   const [liveStreams, setLiveStreams] = useState<LiveStream[]>([]);
   const [loadingStreams, setLoadingStreams] = useState(true);
+  const [isMiniApp, setIsMiniApp] = useState<boolean | null>(null);
+  const [checkingEnvironment, setCheckingEnvironment] = useState(true);
   const router = useRouter();
 
-  // Fetch live streams on component mount
+  // Check if running in Mini App environment
   useEffect(() => {
-    fetchLiveStreams();
+    const checkEnvironment = async () => {
+      try {
+        const miniAppStatus = await sdk.isInMiniApp();
+        setIsMiniApp(miniAppStatus);
+      } catch (error) {
+        console.error('Error checking Mini App environment:', error);
+        setIsMiniApp(false);
+      } finally {
+        setCheckingEnvironment(false);
+      }
+    };
+
+    checkEnvironment();
   }, []);
+
+  // Fetch live streams on component mount (only if in Mini App)
+  useEffect(() => {
+    if (isMiniApp === true) {
+      fetchLiveStreams();
+    }
+  }, [isMiniApp]);
 
   const fetchLiveStreams = async () => {
     try {
@@ -50,9 +73,11 @@ export default function Home() {
       // Generate a random room ID
       const roomId = Math.random().toString(36).substring(2, 15);
       
-      // Generate a random user ID for the host
-      const hostUserId = `user_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      const hostUsername = `Host_${Math.random().toString(36).substring(2, 6)}`;
+      // Get Farcaster user data
+      const context = await sdk.context;
+      const hostUserId = context.user.fid.toString();
+      const hostUsername = context.user.username || 'Anonymous';
+      const hostPfpUrl = context.user.pfpUrl;
       
       // Create room in database
       const response = await fetch('/api/rooms', {
@@ -64,6 +89,7 @@ export default function Home() {
           roomId,
           hostUserId,
           hostUsername,
+          hostPfpUrl,
         }),
       });
 
@@ -87,6 +113,44 @@ export default function Home() {
     router.push(`/room/${roomId}`);
   };
 
+    // Show loading state while checking environment
+  if (checkingEnvironment) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center">
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white mb-4"></div>
+        <p className="text-gray-300">Checking environment...</p>
+      </div>
+    );
+  }
+
+  // Show message if not in Mini App
+  if (!isMiniApp) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex flex-col items-center justify-center px-6">
+        <div className="text-center max-w-md">
+          <Image 
+            src="/logo.png" 
+            alt="Streamly Icon" 
+            width={64} 
+            height={64} 
+            className="mx-auto mb-6"
+          />
+          <h1 className="text-2xl font-bold text-white mb-4">Streamly</h1>
+          <p className="text-gray-300 text-lg mb-6">
+            Please open this app in Farcaster or Base App to use Streamly.
+          </p>
+          {/* <div className="bg-gray-800 rounded-lg p-4 border border-gray-700">
+            <p className="text-sm text-gray-400">
+              Streamly is designed to work within the Farcaster ecosystem. 
+              Open it from your Farcaster or Base App to start streaming and connecting with others.
+            </p>
+          </div> */}
+        </div>
+      </div>
+    );
+  }
+
+  // Show normal app content if in Mini App
   return (
     <div className="min-h-screen bg-gray-900 text-white flex flex-col">
       {/* Header */}

@@ -2,10 +2,12 @@
 'use client';
 
 import { Users } from 'lucide-react';
+import Image from 'next/image';
 
 interface LiveStream {
   room_id: string;
   host_username: string;
+  host_pfp_url?: string;
   current_viewers: number;
   total_viewers: number;
   created_at: string;
@@ -52,11 +54,23 @@ export default function StreamGrid({ streams, onStreamClick, isLoading = false }
           {/* Stream Content */}
           <div className="flex flex-col items-center justify-center h-full p-3 pb-8">
             {/* Host Avatar */}
-            <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
-              <span className="text-white font-bold text-lg">
-                {stream.host_username ? stream.host_username.charAt(0).toUpperCase() : 'H'}
-              </span>
-            </div>
+            {stream.host_pfp_url ? (
+              <div className="w-12 h-12 rounded-full overflow-hidden">
+                <Image 
+                  src={stream.host_pfp_url} 
+                  alt={`${stream.host_username}'s profile`}
+                  width={48}
+                  height={48}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-12 h-12 bg-blue-600 rounded-full flex items-center justify-center">
+                <span className="text-white font-bold text-lg">
+                  {stream.host_username ? stream.host_username.charAt(0).toUpperCase() : 'H'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Live Badge */}

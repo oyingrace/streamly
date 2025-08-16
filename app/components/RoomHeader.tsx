@@ -1,9 +1,11 @@
 'use client';
 
 import { Users, X } from 'lucide-react';
+import Image from 'next/image';
 
 interface RoomHeaderProps {
   hostUsername: string;
+  hostPfpUrl?: string;
   viewerCount: number;
   isHost: boolean;
   onShowViewersList: () => void;
@@ -12,6 +14,7 @@ interface RoomHeaderProps {
 
 export default function RoomHeader({
   hostUsername,
+  hostPfpUrl,
   viewerCount,
   isHost,
   onShowViewersList,
@@ -22,8 +25,25 @@ export default function RoomHeader({
       {/* Top Left - Host Username */}
       <div className="fixed top-6 left-4 z-10">
         <div className="bg-black/30 backdrop-blur-md rounded-lg px-3 py-2 border border-white/20">
-          <div className="text-white text-xs sm:text-sm font-medium">
-            {hostUsername}
+          <div className="flex items-center gap-2">
+            {hostPfpUrl ? (
+              <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0">
+                <Image 
+                  src={hostPfpUrl} 
+                  alt={`${hostUsername}'s profile`}
+                  width={24}
+                  height={24}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            ) : (
+              <div className="w-6 h-6 bg-gradient-to-br from-purple-400 to-pink-400 rounded-full flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                {hostUsername.charAt(0).toUpperCase()}
+              </div>
+            )}
+            <div className="text-white text-xs sm:text-sm font-medium">
+              {hostUsername}
+            </div>
           </div>
         </div>
       </div>
