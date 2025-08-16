@@ -74,12 +74,12 @@ export default function RoomPage({ params }: RoomPageProps) {
               console.log('✅ Original host rejoining live stream');
             } else {
               // Regular viewer joining
-              await joinAsViewer();
+            await joinAsViewer();
             }
           } else if (room.status === 'created') {
             if (isCurrentUserHost) {
               // Original host of a created room
-              setIsHost(true);
+            setIsHost(true);
               setCurrentUserID(currentUserId);
               console.log('✅ Original host of created room');
             } else {
@@ -767,7 +767,7 @@ export default function RoomPage({ params }: RoomPageProps) {
         if (streamID) {
           try {
             await zegoEngine.mutePublishStreamAudio(streamID, !audioTrack.enabled);
-            console.log('✅ toggleMic: Published stream audio muted:', !audioTrack.enabled);
+        console.log('✅ toggleMic: Published stream audio muted:', !audioTrack.enabled);
           } catch (muteError) {
             console.error('❌ toggleMic: Error muting/unmuting published stream:', muteError);
             // Fallback: try with the stream object

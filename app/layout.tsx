@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import FarcasterSDK from "./components/FarcasterSDK";
+import { streamlyEmbed, streamlyEmbedFrame } from "./lib/embedConfig";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -16,6 +17,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Streamly",
   description: "Live streaming for everyone",
+  other: {
+    "fc:miniapp": JSON.stringify(streamlyEmbed),
+    "fc:frame": JSON.stringify(streamlyEmbedFrame),
+  },
 };
 
 export default function RootLayout({
