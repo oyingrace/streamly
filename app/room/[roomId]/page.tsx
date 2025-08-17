@@ -263,61 +263,10 @@ export default function RoomPage({ params }: RoomPageProps) {
         try {
           console.log('🔍 DEBUG - Periodic stream check...');
           
-          // Get current stream list
-          const streamList = await zegoEngine.getStreamList(roomId);
-          console.log('🔍 DEBUG - Periodic check - streams found:', streamList);
-          
-          if (streamList && streamList.length > 0) {
-            console.log('✅ Periodic check - found streams, starting playback...');
-            
-            // Process each stream
-            for (const stream of streamList) {
-              try {
-                console.log('✅ Starting to play stream from periodic check:', stream.streamID);
-                
-                // Start playing the stream
-                const remoteStream = await zegoEngine.startPlayingStream(stream.streamID);
-                console.log('✅ Stream from periodic check started successfully');
-                
-                // Extract MediaStream and set to video element
-                let actualMediaStream: MediaStream;
-                const remoteStreamAny = remoteStream as any;
-                
-                if (remoteStreamAny.zegoStream && remoteStreamAny.zegoStream.stream) {
-                  actualMediaStream = remoteStreamAny.zegoStream.stream;
-                } else if (remoteStreamAny.stream) {
-                  actualMediaStream = remoteStreamAny.stream;
-                } else if (remoteStreamAny.getTracks && typeof remoteStreamAny.getTracks === 'function') {
-                  actualMediaStream = remoteStreamAny;
-                } else {
-                  console.error('❌ Could not find MediaStream in periodic check stream object');
-                  continue;
-                }
-                
-                // Set the MediaStream to video element
-                const videoElement = document.querySelector('video');
-                if (videoElement) {
-                  videoElement.srcObject = actualMediaStream;
-                  videoElement.muted = false;
-                  videoElement.volume = 1.0;
-                  console.log('✅ Periodic check - MediaStream set to video element');
-                  
-                  // Enable audio for the stream
-                  await zegoEngine.mutePlayStreamAudio(stream.streamID, false);
-                  console.log('✅ Audio enabled for periodic check stream');
-                  
-                  console.log('🎉 Viewer can now see and hear the stream from periodic check!');
-                  
-                  // Clear the interval since we found the stream
-                  if (interval) {
-                    clearInterval(interval);
-                  }
-                }
-              } catch (streamError) {
-                console.error('❌ Error playing stream from periodic check:', streamError);
-              }
-            }
-          }
+          // Note: We can't use getStreamList as it doesn't exist in Zego SDK
+          // Instead, we rely on the roomStreamUpdate event which should fire immediately
+          // if there are existing streams when the viewer joins
+          console.log('🔍 DEBUG - Relying on roomStreamUpdate event for stream detection...');
         } catch (error) {
           console.error('❌ Error in periodic stream check:', error);
         }

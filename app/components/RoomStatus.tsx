@@ -59,17 +59,14 @@ export default function RoomStatus({
       setShowRetryMessage(false);
       setViewerWaitTime(0);
       
-      // Get current stream list
-      const streamList = await zegoEngine.getStreamList();
-      console.log('🔄 Retry - Found streams:', streamList);
+      // Note: We can't use getStreamList as it doesn't exist in Zego SDK
+      // Instead, we rely on the roomStreamUpdate event which should fire immediately
+      // if there are existing streams when the viewer joins
+      console.log('🔄 Retry - Relying on roomStreamUpdate event for stream detection...');
       
-      if (streamList && streamList.length > 0) {
-        console.log('✅ Retry successful - streams found!');
-        // The roomStreamUpdate event should handle the rest
-      } else {
-        console.log('⚠️ Retry - still no streams found');
-        setShowRetryMessage(true);
-      }
+      // Reset the timer to give more time for the event to fire
+      setViewerWaitTime(0);
+      
     } catch (error) {
       console.error('❌ Error during retry:', error);
       setShowRetryMessage(true);
