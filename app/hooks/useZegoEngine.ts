@@ -366,6 +366,72 @@ export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewe
           console.log('🔍 [DEBUG] === END INITIAL USER ADDED ===');
         } else {
           console.log('✅ Step 2: Viewer logged into Zego room successfully');
+          
+          // FIX: For viewers, check for existing streams immediately after login
+          // This handles the case where the host is already streaming when viewer joins
+          setTimeout(async () => {
+            try {
+              console.log('🔍 [DEBUG] Checking for existing streams as viewer...');
+              
+              // Get the current stream list from Zego
+              const streamList = await zg.getStreamList(roomId);
+              console.log('🔍 [DEBUG] Existing streams found:', streamList);
+              
+              if (streamList && streamList.length > 0) {
+                console.log('✅ Found existing streams, starting playback...');
+                
+                // Process each existing stream
+                for (const stream of streamList) {
+                  try {
+                    console.log('✅ Starting to play existing stream:', stream.streamID);
+                    
+                    // Start playing the stream
+                    const remoteStream = await zg.startPlayingStream(stream.streamID);
+                    console.log('✅ Existing stream started successfully');
+                    
+                    // Extract MediaStream and set to video element
+                    let actualMediaStream: MediaStream;
+                    const remoteStreamAny = remoteStream as any;
+                    
+                    if (remoteStreamAny.zegoStream && remoteStreamAny.zegoStream.stream) {
+                      actualMediaStream = remoteStreamAny.zegoStream.stream;
+                    } else if (remoteStreamAny.stream) {
+                      actualMediaStream = remoteStreamAny.stream;
+                    } else if (remoteStreamAny.getTracks && typeof remoteStreamAny.getTracks === 'function') {
+                      actualMediaStream = remoteStreamAny;
+                    } else {
+                      console.error('❌ Could not find MediaStream in existing stream object');
+                      continue;
+                    }
+                    
+                    // Set the MediaStream to video element
+                    const videoElement = document.querySelector('video');
+                    if (videoElement) {
+                      videoElement.srcObject = actualMediaStream;
+                      videoElement.muted = false;
+                      videoElement.volume = 1.0;
+                      console.log('✅ Existing stream MediaStream set to video element');
+                      
+                      // Enable audio for the stream
+                      await zg.mutePlayStreamAudio(stream.streamID, false);
+                      console.log('✅ Audio enabled for existing stream');
+                      
+                      // Set watching state
+                      setIsWatching(true);
+                      console.log('🎉 Viewer can now see and hear the existing stream!');
+                    }
+                  } catch (streamError) {
+                    console.error('❌ Error playing existing stream:', streamError);
+                  }
+                }
+              } else {
+                console.log('🔍 [DEBUG] No existing streams found, waiting for roomStreamUpdate event...');
+              }
+            } catch (error) {
+              console.error('❌ Error checking for existing streams:', error);
+            }
+          }, 1000); // Wait 1 second after login to check for existing streams
+          
           // For viewers, the viewer count will be updated by roomUserUpdate events
         }
         
