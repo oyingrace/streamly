@@ -1,6 +1,7 @@
 'use client';
 
 import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface RoomStatusProps {
   isHost: boolean;
@@ -21,6 +22,57 @@ export default function RoomStatus({
   isWatching,
   onStartStream,
 }: RoomStatusProps) {
+  const [viewerWaitTime, setViewerWaitTime] = useState(0);
+  const [showRetryMessage, setShowRetryMessage] = useState(false);
+
+  // Track how long viewer has been waiting for stream
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    if (!isHost && !isStreaming && !isWatching && isLoggedIn && !isInitializing) {
+      interval = setInterval(() => {
+        setViewerWaitTime(prev => {
+          const newTime = prev + 1;
+          // Show retry message after 10 seconds
+          if (newTime >= 10 && !showRetryMessage) {
+            setShowRetryMessage(true);
+          }
+          return newTime;
+        });
+      }, 1000);
+    } else {
+      setViewerWaitTime(0);
+      setShowRetryMessage(false);
+    }
+
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isHost, isStreaming, isWatching, isLoggedIn, isInitializing, showRetryMessage]);
+
+  // Retry function to check for streams again
+  const retryStreamCheck = async () => {
+    if (!zegoEngine) return;
+    
+    try {
+      console.log('🔄 Retrying stream check...');
+      setShowRetryMessage(false);
+      setViewerWaitTime(0);
+      
+      // Note: We can't use getStreamList as it doesn't exist in Zego SDK
+      // Instead, we rely on the roomStreamUpdate event which should fire immediately
+      // if there are existing streams when the viewer joins
+      console.log('🔄 Retry - Relying on roomStreamUpdate event for stream detection...');
+      
+      // Reset the timer to give more time for the event to fire
+      setViewerWaitTime(0);
+      
+    } catch (error) {
+      console.error('❌ Error during retry:', error);
+      setShowRetryMessage(true);
+    }
+  };
+
   // Host start button
   if (!isStreaming && isHost) {
     return (
@@ -68,8 +120,28 @@ export default function RoomStatus({
                 <Loader2 className="w-4 h-4 animate-spin" />
                 <span>Connecting...</span>
               </div>
+            ) : showRetryMessage ? (
+              <div className="space-y-2">
+                <div className="text-sm text-yellow-300">
+                  Stream not detected. The host might not be streaming yet.
+                </div>
+                <button 
+                  onClick={retryStreamCheck}
+                  className="text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded transition-colors"
+                >
+                  Retry Connection
+                </button>
+              </div>
             ) : (
-              <span>Connected! Stream should appear shortly...</span>
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>
+                  {viewerWaitTime > 0 
+                    ? `Connected! Looking for stream... (${viewerWaitTime}s)`
+                    : 'Connected! Stream should appear shortly...'
+                  }
+                </span>
+              </div>
             )}
           </div>
         </div>

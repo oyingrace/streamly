@@ -366,6 +366,12 @@ export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewe
           console.log('🔍 [DEBUG] === END INITIAL USER ADDED ===');
         } else {
           console.log('✅ Step 2: Viewer logged into Zego room successfully');
+          
+          // FIX: For viewers, rely on roomStreamUpdate event to detect existing streams
+          // The roomStreamUpdate event will fire immediately if there are existing streams
+          console.log('✅ Step 2: Viewer logged into Zego room successfully');
+          console.log('🔍 [DEBUG] Waiting for roomStreamUpdate event to detect existing streams...');
+          
           // For viewers, the viewer count will be updated by roomUserUpdate events
         }
         

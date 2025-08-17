@@ -8,7 +8,8 @@ export const streamlyEmbed = {
       url: "https://streamly-app.vercel.app",
       name: "Streamly",
       splashImageUrl: "https://streamly-app.vercel.app/icon.png",
-      splashBackgroundColor: "#ffffff"
+      splashBackgroundColor: "#ffffff",
+      permissions: ["allow-modals"]
     }
   }
 };

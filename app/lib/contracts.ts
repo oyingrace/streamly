@@ -40,7 +40,8 @@ export const ERROR_MESSAGES = {
   'DailyClaim: recovery failed': 'Token recovery failed',
   'User rejected the transaction': 'Transaction cancelled',
   'User rejected the request': 'Request cancelled',
-  'insufficient funds': 'Insufficient funds for transaction',
+  'insufficient funds': 'Insufficient funds for gas fees. Please add more Base ETH.',
+  'gas': 'Insufficient funds for gas fees. Please add more Base ETH.',
   'network error': 'Network error. Please try again.',
   'unknown error': 'An unexpected error occurred. Please try again.',
 } as const;
