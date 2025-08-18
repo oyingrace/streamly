@@ -87,11 +87,15 @@ export const getMobileAudioConstraints = () => {
 
 // Network quality detection
 export const getNetworkQuality = () => {
-  if (typeof navigator === 'undefined' || !navigator.connection) {
+  if (typeof navigator === 'undefined') {
     return 'unknown';
   }
   
-  const connection = navigator.connection as any;
+  // Check if Network Information API is available
+  const connection = (navigator as any).connection;
+  if (!connection) {
+    return 'unknown';
+  }
   
   if (connection.effectiveType) {
     switch (connection.effectiveType) {
