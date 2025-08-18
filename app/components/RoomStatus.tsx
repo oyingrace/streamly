@@ -1,134 +1,153 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Play, Users } from 'lucide-react';
+import { Loader2 } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 interface RoomStatusProps {
   isHost: boolean;
   isInitializing: boolean;
+  isLoggedIn: boolean;
+  zegoEngine: any;
   isStreaming: boolean;
-  viewerCount: number;
+  isWatching: boolean;
   onStartStream?: () => void;
-  isWatching?: boolean;
 }
-
-// Mobile device detection
-const isMobileDevice = () => {
-  if (typeof window === 'undefined') return false;
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
 
 export default function RoomStatus({
   isHost,
   isInitializing,
+  isLoggedIn,
+  zegoEngine,
   isStreaming,
-  viewerCount,
+  isWatching,
   onStartStream,
-  isWatching = false,
 }: RoomStatusProps) {
-  const [retryCount, setRetryCount] = useState(0);
+  const [viewerWaitTime, setViewerWaitTime] = useState(0);
   const [showRetryMessage, setShowRetryMessage] = useState(false);
-  const isMobile = isMobileDevice();
 
-  // Show retry message for mobile viewers after a delay
+  // Track how long viewer has been waiting for stream
   useEffect(() => {
-    if (isMobile && !isHost && !isStreaming && !isWatching && !isInitializing) {
-      const timer = setTimeout(() => {
-        setShowRetryMessage(true);
-        setRetryCount(prev => prev + 1);
-      }, 3000); // Show after 3 seconds
-
-      return () => clearTimeout(timer);
+    let interval: NodeJS.Timeout;
+    
+    if (!isHost && !isStreaming && !isWatching && isLoggedIn && !isInitializing) {
+      interval = setInterval(() => {
+        setViewerWaitTime(prev => {
+          const newTime = prev + 1;
+          // Show retry message after 10 seconds
+          if (newTime >= 10 && !showRetryMessage) {
+            setShowRetryMessage(true);
+          }
+          return newTime;
+        });
+      }, 1000);
+    } else {
+      setViewerWaitTime(0);
+      setShowRetryMessage(false);
     }
-  }, [isMobile, isHost, isStreaming, isWatching, isInitializing]);
 
-  // Auto-retry logic for mobile viewers
-  useEffect(() => {
-    if (isMobile && !isHost && !isStreaming && !isWatching && retryCount > 0 && retryCount < 5) {
-      const retryTimer = setTimeout(() => {
-        console.log(`🔄 Mobile viewer retry attempt ${retryCount + 1}/5`);
-        // Trigger a page refresh or reconnection attempt
-        window.location.reload();
-      }, 5000 * retryCount); // Increasing delay between retries
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isHost, isStreaming, isWatching, isLoggedIn, isInitializing, showRetryMessage]);
 
-      return () => clearTimeout(retryTimer);
+  // Retry function to check for streams again
+  const retryStreamCheck = async () => {
+    if (!zegoEngine) return;
+    
+    try {
+      console.log('🔄 Retrying stream check...');
+      setShowRetryMessage(false);
+      setViewerWaitTime(0);
+      
+      // Note: We can't use getStreamList as it doesn't exist in Zego SDK
+      // Instead, we rely on the roomStreamUpdate event which should fire immediately
+      // if there are existing streams when the viewer joins
+      console.log('🔄 Retry - Relying on roomStreamUpdate event for stream detection...');
+      
+      // Reset the timer to give more time for the event to fire
+      setViewerWaitTime(0);
+      
+    } catch (error) {
+      console.error('❌ Error during retry:', error);
+      setShowRetryMessage(true);
     }
-  }, [isMobile, isHost, isStreaming, isWatching, retryCount]);
+  };
 
-  if (isHost) {
+  // Host start button
+  if (!isStreaming && isHost) {
     return (
-      <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-10">
-        {!isStreaming && !isInitializing && (
-          <button
-            onClick={onStartStream}
-            className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-full transition-colors flex items-center gap-2 shadow-lg"
-          >
-            <Play className="w-5 h-5" />
-            Start Stream
-          </button>
-        )}
-        
-        {isInitializing && (
-          <div className="bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
-            <div className="flex items-center gap-2">
-              <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-              Setting up stream...
-            </div>
-          </div>
-        )}
-        
-       {/*  {isStreaming && (
-          <div className="bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-red-500 rounded-full animate-pulse"></div>
-              Live
-            </div>
-          </div>
-        )} */}
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10">
+        <button 
+          onClick={onStartStream}
+          disabled={isInitializing || !zegoEngine || !isLoggedIn}
+          className={`font-bold py-3 px-8 sm:py-4 sm:px-12 rounded-full text-lg sm:text-xl transition-colors shadow-lg flex items-center gap-2 ${
+            isInitializing || !zegoEngine || !isLoggedIn
+              ? 'bg-gray-500 cursor-not-allowed'
+              : 'bg-blue-600 hover:bg-blue-700'
+          } text-white`}
+        >
+          {isInitializing ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Initializing...
+            </>
+          ) : !zegoEngine || !isLoggedIn ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              Connecting...
+            </>
+          ) : (
+            'Start Stream'
+          )}
+        </button>
       </div>
     );
   }
 
   // Viewer status
-  return (
-    <div className="fixed bottom-20 left-1/2 transform -translate-x-1/2 z-10">
-      {isInitializing && (
-        <div className="bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            Connecting to stream...
-          </div>
-        </div>
-      )}
-      
-      {!isInitializing && !isWatching && (
-        <div className="bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
-          <div className="flex items-center gap-2">
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-            {showRetryMessage ? (
-              <div className="text-center">
-                <div>Connected, looking for stream...</div>
-                {isMobile && retryCount > 0 && (
-                  <div className="text-xs text-gray-300 mt-1">
-                    Retrying in {Math.max(0, 5 - retryCount)}s... ({retryCount}/5)
-                  </div>
-                )}
+  if (!isStreaming && !isHost && !isWatching) {
+    return (
+      <div className="fixed bottom-6 left-1/2 transform -translate-x-1/2 z-10">
+        <div className="bg-black/30 backdrop-blur-md rounded-lg px-6 py-3 border border-white/20">
+          <div className="text-white text-center">
+            {isInitializing ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Joining stream...</span>
+              </div>
+            ) : !zegoEngine || !isLoggedIn ? (
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Connecting...</span>
+              </div>
+            ) : showRetryMessage ? (
+              <div className="space-y-2">
+                <div className="text-sm text-yellow-300">
+                  Stream not detected. The host might not be streaming yet.
+                </div>
+                <button 
+                  onClick={retryStreamCheck}
+                  className="text-xs bg-blue-600 hover:bg-blue-700 px-3 py-1 rounded transition-colors"
+                >
+                  Retry Connection
+                </button>
               </div>
             ) : (
-              <div>Connecting to stream...</div>
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>
+                  {viewerWaitTime > 0 
+                    ? `Connected! Looking for stream... (${viewerWaitTime}s)`
+                    : 'Connected! Stream should appear shortly...'
+                  }
+                </span>
+              </div>
             )}
           </div>
         </div>
-      )}
-      
-           {/*   {isWatching && (
-         <div className="bg-black/70 text-white px-4 py-2 rounded-lg text-sm">
-           <div className="flex items-center gap-2">
-             <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-             Watching
-           </div>
-         </div>
-       )} */}
-    </div>
-  );
+      </div>
+    );
+  }
+
+  return null;
 }

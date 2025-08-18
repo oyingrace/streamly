@@ -2,32 +2,6 @@
 
 import { useEffect, useRef, useState } from 'react';
 
-// Mobile device detection utility
-const isMobileDevice = () => {
-  if (typeof window === 'undefined') return false;
-  return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-};
-
-// Get mobile-optimized video constraints
-const getMobileVideoConstraints = () => {
-  const isMobile = isMobileDevice();
-  
-  if (isMobile) {
-    return {
-      width: { ideal: 640, max: 1280 },
-      height: { ideal: 480, max: 720 },
-      frameRate: { ideal: 24, max: 30 },
-      facingMode: 'user'
-    };
-  }
-  
-  return {
-    width: 1280,
-    height: 720,
-    facingMode: 'user'
-  };
-};
-
 interface UseZegoEngineProps {
   roomId: string;
   isHost: boolean;
@@ -119,7 +93,6 @@ export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewe
         }
 
         console.log('Initializing Zego engine in browser...');
-        console.log('🔍 [DEBUG] Device type:', isMobileDevice() ? 'MOBILE' : 'DESKTOP');
         
         // Dynamically import Zego SDK to prevent SSR errors
         const { ZegoExpressEngine } = await import('zego-express-engine-webrtc');
@@ -165,13 +138,7 @@ export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewe
           if (!isHost && updateType === 'ADD') {
             try {
               // Request audio permissions for viewers to ensure they can hear
-              const audioStream = await navigator.mediaDevices.getUserMedia({ 
-                audio: {
-                  echoCancellation: true,
-                  noiseSuppression: true,
-                  autoGainControl: true
-                } 
-              });
+              const audioStream = await navigator.mediaDevices.getUserMedia({ audio: true });
               console.log('✅ Audio permissions granted for viewer');
               // Stop the audio stream immediately as we don't need it for playback
               audioStream.getTracks().forEach(track => track.stop());
@@ -431,7 +398,5 @@ export function useZegoEngine({ roomId, isHost, roomData, currentUserID, onViewe
     setMessages,
     initializeZego: initializeZego.current,
     isWatching,
-    isMobileDevice: isMobileDevice(),
-    getMobileVideoConstraints,
   };
 }
