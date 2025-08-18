@@ -89,7 +89,7 @@ export default function StreamGrid({ streams, onStreamClick, isLoading = false }
             )}
 
             {/* Dark overlay for better text readability */}
-            <div className="absolute inset-0 bg-black bg-opacity-20" />
+            <div className="absolute inset-0" />
 
             {/* Live Badge */}
             <div className="absolute top-2 left-2 bg-red-600 text-white text-xs font-bold px-1.5 py-0.5 rounded-full z-10">
