@@ -13,7 +13,6 @@ import RoomStatus from '../../components/RoomStatus';
 import RoomTopControls from '../../components/RoomTopControls';
 import { useZegoEngine } from '../../hooks/useZegoEngine';
 import { sdk } from '@farcaster/miniapp-sdk';
-import { getMobileVideoConstraints, getMobileAudioConstraints, optimizeVideoElement, getDeviceCapabilities } from '../../lib/mobileOptimization';
 
 interface RoomPageProps {
   params: Promise<{
@@ -48,13 +47,6 @@ export default function RoomPage({ params }: RoomPageProps) {
   useEffect(() => {
     setIsClient(true);
   }, []);
-
-  // Optimize video element for mobile when component mounts
-  useEffect(() => {
-    if (videoRef.current && isClient) {
-      optimizeVideoElement(videoRef.current);
-    }
-  }, [isClient]);
 
   // Check if user is host and fetch room data
   useEffect(() => {
@@ -518,11 +510,22 @@ export default function RoomPage({ params }: RoomPageProps) {
   };
 
   const startStreaming = async () => {
-    if (!zegoEngine) {
-      console.log('🔍 DEBUG - startStreaming: No zegoEngine available');
+    if (!zegoEngine || !isLoggedIn) {
+      console.error('❌ Zego engine not initialized or not logged in');
+      console.log('🔍 DEBUG - zegoEngine:', !!zegoEngine);
+      console.log('🔍 DEBUG - isLoggedIn:', isLoggedIn);
       return;
     }
 
+    // Prevent multiple stream starts
+    if (hasStartedStreaming) {
+      console.log('⚠️ Stream already started, skipping...');
+      return;
+    }
+
+    console.log('🚀 === STARTING STREAM ===');
+    console.log('🔍 DEBUG - Current user ID:', currentUserID);
+    console.log('🔍 DEBUG - Room ID:', roomId);
     console.log('🔍 DEBUG - Is Host:', isHost);
 
     try {
@@ -538,43 +541,29 @@ export default function RoomPage({ params }: RoomPageProps) {
       // Create local Zego stream - let Zego handle the media stream creation
       console.log('🔍 DEBUG - About to call createZegoStream()...');
       
-      // Get mobile-optimized constraints
-      const videoConstraints = getMobileVideoConstraints();
-      const audioConstraints = getMobileAudioConstraints();
-      
-      console.log('🔍 DEBUG - Using video constraints:', videoConstraints);
-      console.log('🔍 DEBUG - Using audio constraints:', audioConstraints);
-      console.log('🔍 DEBUG - Device capabilities:', getDeviceCapabilities());
-      
       // Create Zego stream with proper audio/video constraints
       let zegoLocalStream;
       try {
         zegoLocalStream = await zegoEngine.createZegoStream({
           camera: {
-            audio: audioConstraints,
-            video: videoConstraints
+            audio: true,
+            video: true,
+            audioConfig: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            },
+            videoConfig: {
+              width: 1280,
+              height: 720,
+              facingMode: isFrontCamera ? 'user' : 'environment'
+            }
           }
         });
       } catch (createError) {
-        console.log('🔍 DEBUG - createZegoStream with config failed, trying fallback...');
-        
-                  // Fallback to simpler constraints for mobile
-          try {
-            zegoLocalStream = await zegoEngine.createZegoStream({
-              camera: {
-                audio: audioConstraints,
-                video: {
-                  width: { ideal: 640, max: 1280 },
-                  height: { ideal: 480, max: 720 },
-                  frameRate: { ideal: 24, max: 30 }
-                }
-              }
-            });
-        } catch (fallbackError) {
-          console.log('🔍 DEBUG - Fallback failed, trying default method...');
-          // Final fallback to default method
-          zegoLocalStream = await zegoEngine.createZegoStream();
-        }
+        console.log('🔍 DEBUG - createZegoStream with config failed, trying default method...');
+        // Fallback to default method
+        zegoLocalStream = await zegoEngine.createZegoStream();
       }
       
       console.log('✅ Step 1: Zego stream created successfully');
@@ -592,58 +581,85 @@ export default function RoomPage({ params }: RoomPageProps) {
       console.log('🔍 DEBUG - Audio tracks count:', audioTracks.length);
       
       if (videoTracks.length > 0) {
-        const videoTrack = videoTracks[0];
-        console.log('🔍 DEBUG - Video track settings:', videoTrack.getSettings());
-        console.log('🔍 DEBUG - Video track capabilities:', videoTrack.getCapabilities());
+        console.log('🔍 DEBUG - First video track:', videoTracks[0]);
+        console.log('🔍 DEBUG - Video track enabled:', videoTracks[0].enabled);
+        console.log('🔍 DEBUG - Video track readyState:', videoTracks[0].readyState);
+        console.log('🔍 DEBUG - Video track label:', videoTracks[0].label);
       }
       
       if (audioTracks.length > 0) {
-        const audioTrack = audioTracks[0];
-        console.log('🔍 DEBUG - Audio track settings:', audioTrack.getSettings());
-        console.log('🔍 DEBUG - Audio track capabilities:', audioTrack.getCapabilities());
+        console.log('🔍 DEBUG - First audio track:', audioTracks[0]);
+        console.log('🔍 DEBUG - Audio track enabled:', audioTracks[0].enabled);
+        console.log('🔍 DEBUG - Audio track readyState:', audioTracks[0].readyState);
+        console.log('🔍 DEBUG - Audio track muted:', audioTracks[0].muted);
+        
+        // Ensure audio track is enabled for streaming
+        if (!audioTracks[0].enabled) {
+          audioTracks[0].enabled = true;
+          console.log('🔍 DEBUG - Audio track enabled for streaming');
+        }
+        
+        // Ensure audio track is not muted
+        if (audioTracks[0].muted) {
+          console.log('🔍 DEBUG - Audio track was muted, this might cause issues');
+        }
+      } else {
+        console.error('❌ No audio tracks found in Zego stream!');
+        alert('No microphone found or microphone access denied. Please check your microphone permissions.');
+        return;
       }
       
-      // Step 2: Set up video preview
-      console.log('📹 Step 2: Setting up video preview...');
+      if (videoTracks.length === 0) {
+        console.error('❌ No video tracks found in Zego stream!');
+        alert('No camera found or camera access denied. Please check your camera permissions.');
+        return;
+      }
+      
+      // Generate unique stream ID
+      const uniqueStreamID = `stream_${roomId}_${Date.now()}`;
+      setStreamID(uniqueStreamID);
+      console.log('🔍 DEBUG - Stream ID generated:', uniqueStreamID);
+
+      // Start publishing stream first
+      console.log('📡 Step 2: Starting to publish stream...');
+      console.log('🔍 DEBUG - About to call startPublishingStream...');
+      await zegoEngine.startPublishingStream(uniqueStreamID, zegoLocalStream);
+      console.log('✅ Step 2: Stream publishing started successfully');
+
+      // Ensure published stream audio is not muted
+      try {
+        // Use the correct Zego API to unmute the published stream
+        await zegoEngine.mutePublishStreamAudio(uniqueStreamID, false);
+        console.log('✅ Published stream audio unmuted for viewers');
+      } catch (audioError) {
+        console.error('❌ Error unmuting published stream audio:', audioError);
+        // This is not critical, the stream will still work
+      }
+
+      // Play preview of the stream (video only, no audio to prevent echo)
+      console.log('🎥 Step 3: Setting up video preview...');
+      console.log('🔍 DEBUG - videoRef.current exists:', !!videoRef.current);
+      
       if (videoRef.current) {
+        console.log('🔍 DEBUG - Video element:', videoRef.current);
+        console.log('🔍 DEBUG - Video element srcObject:', videoRef.current.srcObject);
+        console.log('🔍 DEBUG - Video element readyState:', videoRef.current.readyState);
+        console.log('🔍 DEBUG - Video element paused:', videoRef.current.paused);
+        
+        console.log('🔍 DEBUG - About to extract MediaStream from Zego stream...');
         try {
           // Extract the actual MediaStream from the Zego stream
-          console.log('🔍 DEBUG - About to extract MediaStream from Zego stream...');
-          console.log('🔍 DEBUG - Zego stream structure:', zegoLocalStream);
-          console.log('🔍 DEBUG - Zego stream properties:', Object.getOwnPropertyNames(zegoLocalStream));
+          const actualMediaStream = zegoLocalStream.zegoStream.stream;
+          console.log('🔍 DEBUG - Actual MediaStream:', actualMediaStream);
+          console.log('🔍 DEBUG - MediaStream tracks:', actualMediaStream.getTracks());
           
-          let actualMediaStream: MediaStream;
-          const zegoLocalStreamAny = zegoLocalStream as any;
-          
-          if (zegoLocalStreamAny.zegoStream && zegoLocalStreamAny.zegoStream.stream) {
-            actualMediaStream = zegoLocalStreamAny.zegoStream.stream;
-            console.log('🔍 DEBUG - Found MediaStream in zegoLocalStream.zegoStream.stream');
-          } else if (zegoLocalStreamAny.stream) {
-            actualMediaStream = zegoLocalStreamAny.stream;
-            console.log('🔍 DEBUG - Found MediaStream in zegoLocalStream.stream');
-          } else if (zegoLocalStreamAny.getTracks && typeof zegoLocalStreamAny.getTracks === 'function') {
-            // If zegoLocalStream is already a MediaStream
-            actualMediaStream = zegoLocalStreamAny;
-            console.log('🔍 DEBUG - zegoLocalStream is already a MediaStream');
-          } else {
-            console.error('❌ Could not find MediaStream in Zego stream object');
-            console.log('🔍 DEBUG - Available properties:', Object.getOwnPropertyNames(zegoLocalStream));
-            return;
-          }
-          
-          console.log('🔍 DEBUG - Actual local MediaStream:', actualMediaStream);
-          console.log('🔍 DEBUG - Local MediaStream tracks:', actualMediaStream.getTracks());
-          
+          // Set the MediaStream directly to the video element
           videoRef.current.srcObject = actualMediaStream;
-          
-          // Optimize video element for mobile
-          optimizeVideoElement(videoRef.current);
-          
-          console.log('✅ Step 2: Video preview set up successfully');
+          console.log('✅ Step 3: Video preview setup successful - MediaStream set to video element');
           
           // Check video element after setting srcObject
           setTimeout(() => {
-            console.log('🔍 DEBUG - Video element after setting local srcObject:');
+            console.log('🔍 DEBUG - Video element after setting srcObject:');
             console.log('  - srcObject:', videoRef.current?.srcObject);
             console.log('  - readyState:', videoRef.current?.readyState);
             console.log('  - paused:', videoRef.current?.paused);
@@ -652,29 +668,33 @@ export default function RoomPage({ params }: RoomPageProps) {
             console.log('  - videoHeight:', videoRef.current?.videoHeight);
           }, 1000);
           
-        } catch (mediaError) {
-          console.error('❌ Error setting up video preview:', mediaError);
+        } catch (playError) {
+          console.error('❌ Error setting MediaStream to video element:', playError);
+        }
+        
+        // Mute the local preview audio to prevent host from hearing themselves
+        // BUT keep the published stream audio enabled so viewers can hear
+        try {
+          // Only mute the local preview, not the published stream
+          if (videoRef.current) {
+            videoRef.current.muted = true;
+            console.log('🔍 DEBUG - Local preview audio muted');
+          }
+        } catch (error) {
+          console.error('❌ Error muting local preview audio:', error);
         }
       } else {
-        console.error('❌ No video element found for preview');
+        console.error('❌ Video element not found!');
       }
-      
-      // Step 3: Start publishing the stream
-      console.log('📹 Step 3: Starting to publish stream...');
-      const streamIDValue = `stream_${roomId}_${Date.now()}`;
-      setStreamID(streamIDValue);
-      
-      try {
-        await zegoEngine.startPublishingStream(streamIDValue, zegoLocalStream);
-        console.log('✅ Step 3: Stream publishing started successfully');
-        
-        // Step 4: Update UI state
-        setIsStreaming(true);
-        setHasStartedStreaming(true);
-        console.log('✅ Step 4: UI state updated - streaming started');
-        
-        // Step 5: Update database
+
+      console.log('🎉 === STREAMING STARTED SUCCESSFULLY ===');
+      setIsStreaming(true);
+      setHasStartedStreaming(true); // Mark as started streaming
+
+      // Update database to mark stream as live
+      if (isHost) {
         try {
+          // Get Farcaster user data for the host
           const context = await sdk.context;
           const hostUserId = context.user.fid.toString();
           const hostUsername = context.user.username || 'Anonymous';
@@ -701,9 +721,6 @@ export default function RoomPage({ params }: RoomPageProps) {
         } catch (error) {
           console.error('Error updating database for stream start:', error);
         }
-      } catch (publishError) {
-        console.error('❌ Error starting to publish stream:', publishError);
-        throw publishError;
       }
 
     } catch (error: any) {
@@ -803,21 +820,22 @@ export default function RoomPage({ params }: RoomPageProps) {
           await zegoEngine.destroyStream(localZegoStream);
         }
         
-        // Get mobile-optimized constraints
-        const baseConstraints = getMobileVideoConstraints();
-        const mobileConstraints = {
-          ...baseConstraints,
-          facingMode: newFacingMode
-        };
-        
         // Create new Zego stream with the new camera
         console.log('🔍 DEBUG - switchCamera: Creating new Zego stream with camera:', newFacingMode);
-        console.log('🔍 DEBUG - switchCamera: Using constraints:', mobileConstraints);
-        
         const newZegoStream = await zegoEngine.createZegoStream({
           camera: {
-            audio: getMobileAudioConstraints(),
-            video: mobileConstraints
+            audio: true,
+            video: true,
+            audioConfig: {
+              echoCancellation: true,
+              noiseSuppression: true,
+              autoGainControl: true
+            },
+            videoConfig: {
+              width: 1280,
+              height: 720,
+              facingMode: newFacingMode
+            }
           }
         });
         
@@ -901,11 +919,6 @@ export default function RoomPage({ params }: RoomPageProps) {
         playsInline
         muted={isHost} // Only mute for host to prevent echo, viewers need to hear
         className="w-full h-full object-cover"
-        style={{
-          objectFit: 'cover',
-          width: '100%',
-          height: '100%'
-        }}
       />
       
       {/* Remote video container for other users' streams */}
@@ -936,10 +949,11 @@ export default function RoomPage({ params }: RoomPageProps) {
       <RoomStatus
         isHost={isHost}
         isInitializing={isInitializing}
+        isLoggedIn={isLoggedIn}
+        zegoEngine={zegoEngine}
         isStreaming={isStreaming}
-        viewerCount={viewerCount}
-        onStartStream={startStreaming}
         isWatching={isWatching}
+        onStartStream={startStreaming}
       />
 
       {/* Streaming Controls - Show when streaming (host) or watching (viewer) */}
