@@ -15,6 +15,7 @@ A live streaming Mini App that connects creators and communities through real-ti
 - 📱 **Mobile-First Design** - Optimized for mobile streaming experience
 - 🔒 **Mini App Security** - Only accessible within Farcaster and Base App
 - 📊 **Database Integration** - Persistent storage with Supabase PostgreSQL
+- 🪙 **Claim Tokens** - Daily on-chain $STRM claim on Base with wallet confirmation
 
 ## Upcoming Features
 
@@ -110,6 +111,38 @@ A live streaming Mini App that connects creators and communities through real-ti
 2. **Join a Stream** - Click on any live stream to join
 3. **Engage** - Send chat messages, heart reactions, and interact with the host
 4. **View Audience** - See who else is watching the stream
+
+### Claim Tokens (Daily $STRM)
+
+Claim a daily $STRM reward directly in the app header.
+
+- **Prerequisites**:
+  - A wallet on the Base network (inside Farcaster/Base app or an injected wallet supported by the Mini App)
+  - A small amount of Base ETH for gas fees
+- **How to claim**:
+  1. Tap the "Claim" button in the header
+  2. If prompted, connect your wallet
+  3. Confirm the on-chain transaction in your wallet
+  4. Wait for confirmation; a success modal will show your transaction with a BaseScan link
+- **Limits**: One claim per 24 hours per wallet
+
+**Network and Contracts**
+
+```text
+Network: Base Mainnet
+DailyClaim: 0x0e72291f013cccf516a89381dd3966feedc63ef6
+STRM Token: 0x2ce6620221d585cf8c8f5730581c781de5db4fc3
+```
+
+**Developer notes**
+- Contract addresses and ABI are defined in `app/lib/contracts.ts`
+- No additional env vars are required for claiming
+
+**Troubleshooting**
+- "You've already claimed today" → Wait until the 24-hour window resets
+- "Claiming is temporarily disabled" → The contract is paused; try later
+- "Insufficient funds for gas" → Add Base ETH to cover transaction fees
+- Wallet won’t connect → Ensure you’re running inside the Farcaster/Base app environment
 
 
 ## Mini App Features
