@@ -33,7 +33,7 @@
       "header": "eyJmaWQiOjExNDQ0NjYsInR5cGUiOiJhdXRoIiwia2V5IjoiMHhiNUEyNjllODg1Njc3OWFkNDc5NTY0RTMyMmMzRUZFN2IzQmJhNzk1In0",
       "payload": "eyJkb21haW4iOiJzdHJlYW1seS1hcHAudmVyY2VsLmFwcCJ9",
       "signature": "IblxXtgXSNzH2iXYCSKR+ka93xKCIus5iPZKXaYuiLI4f9THdzbq9sueqYuzK4t3apxWkzipVoFeMkghuQLraxs=",
-  "baseBuilder": {
+      "baseBuilder": {
     "allowedAddresses": ["0xC16ac023413Af15E86FdAC2E42c780223a3FB336"]
   }
     }
