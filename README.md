@@ -16,6 +16,7 @@ A live streaming Mini App that connects creators and communities through real-ti
 - 🔒 **Mini App Security** - Only accessible within Farcaster and Base App
 - 📊 **Database Integration** - Persistent storage with Supabase PostgreSQL
 - 🪙 **Claim Tokens** - Daily on-chain $STRM claim on Base with wallet confirmation
+- 📱 **Wallet Connect** - Wallet Connect using Appkit Provider
 
 ## Upcoming Features
 
