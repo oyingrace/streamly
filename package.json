@@ -14,6 +14,8 @@
     "@reown/appkit": "^1.8.14",
     "@reown/walletkit": "^1.4.1",
     "@supabase/supabase-js": "^2.55.0",
+    "@stacks/connect": "^8.2.3",
+    "@stacks/transactions": "^7.3.0",
     "@tanstack/react-query": "^5.85.3",
     "@walletconnect/core": "^2.23.0",
     "@walletconnect/utils": "^2.23.0",
