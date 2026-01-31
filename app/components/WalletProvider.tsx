@@ -33,3 +33,12 @@ const WalletModalProviderDynamic = dynamic(
       () => [new PhantomWalletAdapter(), new SolflareWalletAdapter()],
       []
     );
+
+    return (
+        <ConnectionProvider endpoint={endpoint}>
+          <WalletProvider wallets={wallets} autoConnect>
+            <WalletModalProviderDynamic>{children}</WalletModalProviderDynamic>
+          </WalletProvider>
+        </ConnectionProvider>
+      );
+    };
